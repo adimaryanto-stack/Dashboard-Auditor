@@ -53,6 +53,14 @@ export interface AlokasiKabupatenKota {
   updated_at: string;
 }
 
+export interface JenjangBreakdownProvinsi {
+  nomor: number;
+  jenjang: string;
+  jumlah_sekolah: number;
+  nominal_keseluruhan: number;
+  porsi_anggaran: number; // percentage
+}
+
 export interface InstitusiPendidikan {
   id: string;
   npsn: string;
@@ -62,11 +70,60 @@ export interface InstitusiPendidikan {
   kabupaten_kota_nama: string;
   provinsi_nama: string;
   status_sekolah: 'NEGERI' | 'SWASTA';
+  nomor_rekening?: string;
   nominal_alokasi: number;
   realisasi_total: number;
   selisih: number;
   persentase_penyerapan: number;
   updated_at: string;
+}
+
+export interface SumberDanaInstitusi {
+  id: string;
+  institusi_id: string;
+  nama_sumber: string;
+  tahun_anggaran: string;
+  nominal: number;
+  realisasi: number;
+  saldo_di_bank: number; // nominal - realisasi
+}
+
+export interface PengeluaranBulananInstitusi {
+  id: string;
+  institusi_id: string;
+  nomor: number;
+  bulan: string;
+  nominal_pengeluaran: number;
+  qty: number;
+  sub_total: number; // nominal_pengeluaran * qty
+}
+
+export interface ProfilInstitusi {
+  institusi: InstitusiPendidikan;
+  sumber_dana: SumberDanaInstitusi[];
+  pengeluaran_bulanan: PengeluaranBulananInstitusi[];
+  saldo_surplus_defisit: number;
+}
+
+export interface RincianPengeluaranItem {
+  id: string;
+  nomor: number;
+  nama_produk_jasa: string;
+  harga_satuan: number;
+  qty: number;
+  jumlah: number; // harga_satuan * qty
+}
+
+export interface RincianPengeluaranBulanan {
+  institusi_id: string;
+  institusi_nama: string;
+  bulan: string;
+  nomor_bulan: number;
+  items: RincianPengeluaranItem[];
+  sub_total: number;
+  pajak_persen: number;
+  pajak_nominal: number;
+  total: number;
 }
 
 export interface User {

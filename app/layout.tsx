@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dashboard Kementerian Pendidikan",
-  description: "Sistem monitoring alokasi dan realisasi anggaran Kementerian Pendidikan Republik Indonesia",
+  title: "Dashboard Kementerian",
+  description: "Sistem monitoring alokasi dan realisasi anggaran Kementerian",
   keywords: ["transparansi", "anggaran", "pendidikan", "APBN", "Indonesia", "budget"],
 };
 

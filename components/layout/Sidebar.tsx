@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import {
   LayoutDashboard, DollarSign, MapPin, Building2,
   GraduationCap, Users, ChevronDown, ChevronRight,
-  Menu, X, Landmark
+  Menu, X, Landmark, School
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -55,8 +55,8 @@ export default function Sidebar() {
               <Landmark size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-text-primary leading-tight">Kementerian</h1>
-              <p className="text-xs text-text-muted">Pendidikan RI</p>
+              <h1 className="text-sm font-bold text-text-primary leading-tight">Dashboard</h1>
+              <p className="text-xs text-text-muted">Kementerian</p>
             </div>
           </div>
         </div>
@@ -109,6 +109,11 @@ export default function Sidebar() {
               </div>
             </div>
           </div>
+
+          <Link href="/dashboard/profil-institusi" className={`sidebar-item ${pathname.includes('/profil-institusi') ? 'active' : ''}`}>
+            <School size={18} />
+            <span>Profil Institusi</span>
+          </Link>
 
           <Link href="/dashboard/users" className={`sidebar-item ${isActive('/dashboard/users') ? 'active' : ''}`}>
             <Users size={18} />

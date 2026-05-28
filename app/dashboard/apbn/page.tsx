@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
+import { useAppStore } from '@/lib/store';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { tahunAnggaranData } from '@/lib/data';
+import { tahunAnggaranData, updateTahunAnggaranData } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { TahunAnggaran, BudgetStatus } from '@/types';
 import { Plus, Eye, Power, Lock, Trash2, Edit3 } from 'lucide-react';
 
 export default function APBNPage() {
+  const { setActiveTahun } = useAppStore();
   const [data, setData] = useState<TahunAnggaran[]>(tahunAnggaranData);
   const [showModal, setShowModal] = useState(false);
   const [newTahun, setNewTahun] = useState('');
@@ -18,35 +21,43 @@ export default function APBNPage() {
 
   const handleActivate = (id: string) => {
     if (!confirm('Aktifkan tahun ini? Tahun ACTIVE sebelumnya akan di-CLOSED.')) return;
-    setData(prev => prev.map(t => ({
+    const updated = data.map(t => ({
       ...t,
       status: t.id === id ? 'ACTIVE' : t.status === 'ACTIVE' ? 'CLOSED' : t.status
-    })));
+    }));
+    setData(updated);
+    updateTahunAnggaranData(updated);
   };
 
   const handleClose = (id: string) => {
     if (!confirm('Tutup tahun ini? Data akan menjadi read-only.')) return;
-    setData(prev => prev.map(t => t.id === id ? { ...t, status: 'CLOSED' as BudgetStatus } : t));
+    const updated = data.map(t => t.id === id ? { ...t, status: 'CLOSED' as BudgetStatus } : t);
+    setData(updated);
+    updateTahunAnggaranData(updated);
   };
 
   const handleDelete = (id: string) => {
     const item = data.find(t => t.id === id);
     if (item?.status !== 'DRAFT') return;
     if (!confirm('Hapus tahun ini?')) return;
-    setData(prev => prev.filter(t => t.id !== id));
+    const updated = data.filter(t => t.id !== id);
+    setData(updated);
+    updateTahunAnggaranData(updated);
   };
 
   const handleAdd = () => {
     if (!newTahun || !newTotal) return;
     const exists = data.find(t => t.tahun === Number(newTahun));
     if (exists) { alert('Tahun sudah ada!'); return; }
-    setData(prev => [...prev, {
+    const updated = [...data, {
       id: String(Date.now()),
       tahun: Number(newTahun),
       total_anggaran: Number(newTotal),
-      status: 'DRAFT',
+      status: 'DRAFT' as BudgetStatus,
       created_at: new Date().toISOString(),
-    }]);
+    }];
+    setData(updated);
+    updateTahunAnggaranData(updated);
     setShowModal(false);
     setNewTahun('');
     setNewTotal('');
@@ -63,7 +74,9 @@ export default function APBNPage() {
     if (!editingId) return;
     const parsed = Number(editValue);
     if (!isNaN(parsed) && parsed >= 0) {
-      setData(prev => prev.map(t => t.id === editingId ? { ...t, total_anggaran: parsed } : t));
+      const updated = data.map(t => t.id === editingId ? { ...t, total_anggaran: parsed } : t);
+      setData(updated);
+      updateTahunAnggaranData(updated);
     }
     setEditingId(null);
   };
@@ -101,7 +114,15 @@ export default function APBNPage() {
               {data.sort((a, b) => a.tahun - b.tahun).map((row, idx) => (
                 <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                   <td className="sheet-cell text-center text-text-muted">{idx + 1}</td>
-                  <td className="sheet-cell text-center font-semibold text-text-primary">{row.tahun}</td>
+                  <td className="sheet-cell text-center font-semibold text-text-primary">
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setActiveTahun(row.tahun)}
+                      className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                    >
+                      {row.tahun}
+                    </Link>
+                  </td>
                   <td
                     className={`sheet-cell text-right ${row.status !== 'CLOSED' ? 'sheet-cell-editable' : ''}`}
                     onClick={() => startInlineEdit(row.id, row.total_anggaran)}

@@ -1,24 +1,47 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
-import { alokasiProvinsiData, getKabkotaByProvinsi } from '@/lib/data';
+import { useAppStore } from '@/lib/store';
+import { alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiKabupatenKota } from '@/types';
 import { Search, Download, RefreshCw, Plus } from 'lucide-react';
 
 export default function KabupatenKotaPage() {
+  const { activeTahun } = useAppStore();
   const [selectedProvinsi, setSelectedProvinsi] = useState(alokasiProvinsiData[11].provinsi_id); // Jawa Barat
   const [search, setSearch] = useState('');
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  const rawData = useMemo(() => getKabkotaByProvinsi(selectedProvinsi), [selectedProvinsi]);
+  const rawData = useMemo(() => {
+    const list = getKabkotaByProvinsi(selectedProvinsi);
+    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
+    const baseTahun = tahunAnggaranData[6];
+    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
+    const seed = (activeTahun % 7) || 1;
+    const shift = 0.95 + (seed * 0.012);
+
+    return list.map(item => {
+      const nominal = Math.round(item.nominal_alokasi * scale);
+      const realisasi = Math.min(nominal, Math.round(item.realisasi_total * scale * shift));
+      return {
+        ...item,
+        nominal_alokasi: nominal,
+        realisasi_total: realisasi,
+        selisih: nominal - realisasi,
+        persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
+      };
+    });
+  }, [selectedProvinsi, activeTahun]);
+
   const [localData, setLocalData] = useState<AlokasiKabupatenKota[]>(rawData);
 
-  // Reset local data when province changes
-  useMemo(() => { setLocalData(rawData); }, [rawData]);
+  useEffect(() => {
+    setLocalData(rawData);
+  }, [rawData]);
 
   const filtered = useMemo(() => {
     if (!search) return localData;
@@ -90,7 +113,7 @@ export default function KabupatenKotaPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Kabupaten / Kota" subtitle={`Data alokasi anggaran per kabupaten/kota — ${selectedProvName}`} />
+      <Header title="Kabupaten / Kota" subtitle={`Data alokasi anggaran per kabupaten/kota — ${selectedProvName} Tahun ${activeTahun}`} />
 
       <div className="p-6">
         {/* Toolbar */}

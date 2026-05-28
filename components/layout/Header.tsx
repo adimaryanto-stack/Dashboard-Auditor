@@ -1,17 +1,66 @@
 'use client';
 
+import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { tahunAnggaranData } from '@/lib/data';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, CheckCheck, Info, AlertTriangle, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
 }
 
+interface NotificationItem {
+  id: string;
+  message: string;
+  time: string;
+  unread: boolean;
+  type: 'info' | 'success' | 'warning';
+}
+
 export default function Header({ title, subtitle }: HeaderProps) {
   const { activeTahun, setActiveTahun, toggleSidebar } = useAppStore();
   const activeTahunList = tahunAnggaranData.filter(t => t.status !== 'DRAFT');
+
+  // Notification States
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: 'n1',
+      message: 'Anggaran APBN 2026 Provinsi Aceh berhasil dialokasikan.',
+      time: '10 menit yang lalu',
+      unread: true,
+      type: 'success',
+    },
+    {
+      id: 'n2',
+      message: 'Realisasi Universitas Indonesia bulan Januari telah disinkronkan.',
+      time: '1 jam yang lalu',
+      unread: true,
+      type: 'info',
+    },
+    {
+      id: 'n3',
+      message: 'Peringatan: Penyerapan Kabupaten Ogan Komering Ulu di bawah 50%.',
+      time: '3 jam yang lalu',
+      unread: true,
+      type: 'warning',
+    },
+  ]);
+
+  const unreadCount = notifications.filter(n => n.unread).length;
+
+  const toggleNotifications = () => {
+    setShowNotifications(prev => !prev);
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+
+  const toggleRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: !n.unread } : n));
+  };
 
   return (
     <header className="sticky top-0 z-20 bg-white/70 backdrop-blur-xl border-b border-border px-6 py-4">
@@ -54,10 +103,87 @@ export default function Header({ title, subtitle }: HeaderProps) {
           </div>
 
           {/* Notifications */}
-          <button className="relative p-2 rounded-lg hover:bg-bg-card transition">
-            <Bell size={18} className="text-text-secondary" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={toggleNotifications}
+              className={`relative p-2 rounded-lg transition hover:bg-bg-card ${showNotifications ? 'bg-indigo-50 text-indigo-600' : 'text-text-secondary'}`}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Drawer */}
+            {showNotifications && (
+              <>
+                {/* Click-outside backdrop overlay */}
+                <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
+                
+                <div 
+                  className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-slate-200/80 shadow-xl z-40 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                  style={{ right: 0 }}
+                >
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-indigo-500" />
+                      Notifikasi Terbaru
+                    </span>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={markAllAsRead} 
+                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline"
+                      >
+                        <CheckCheck size={12} />
+                        Semua Dibaca
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-xs">
+                        Tidak ada notifikasi baru
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => toggleRead(n.id)}
+                          className={`p-3.5 flex gap-3 cursor-pointer transition-colors ${n.unread ? 'bg-indigo-50/40 hover:bg-indigo-50/60' : 'hover:bg-slate-50'}`}
+                        >
+                          <div className="mt-0.5 flex-shrink-0">
+                            {n.type === 'success' && <div className="p-1 rounded-md bg-emerald-100 text-emerald-600"><CheckCheck size={14} /></div>}
+                            {n.type === 'info' && <div className="p-1 rounded-md bg-blue-100 text-blue-600"><Info size={14} /></div>}
+                            {n.type === 'warning' && <div className="p-1 rounded-md bg-amber-100 text-amber-600"><AlertTriangle size={14} /></div>}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs leading-relaxed ${n.unread ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
+                              {n.message}
+                            </p>
+                            <span className="text-[10px] text-slate-400 mt-1 block font-mono">
+                              {n.time}
+                            </span>
+                          </div>
+
+                          {n.unread && (
+                            <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-indigo-600" />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-center">
+                    <span className="text-[10px] text-slate-400 font-semibold">Sistem Transparansi Pendidikan v1.0</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
-import { getInstitusiByJenjang, alokasiProvinsiData, getKabkotaByProvinsi } from '@/lib/data';
+import { useAppStore } from '@/lib/store';
+import { getInstitusiByJenjang, alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { Jenjang, InstitusiPendidikan } from '@/types';
 import { Search, Download, Plus, Upload } from 'lucide-react';
@@ -21,9 +23,35 @@ export default function JenjangPage() {
   const params = useParams();
   const slug = params.jenjang as string;
   const config = jenjangLabels[slug] || jenjangLabels.universitas;
+  const { activeTahun } = useAppStore();
 
-  const rawData = useMemo(() => getInstitusiByJenjang(config.jenjang), [config.jenjang]);
+  const rawData = useMemo(() => {
+    const list = getInstitusiByJenjang(config.jenjang);
+    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
+    const baseTahun = tahunAnggaranData[6];
+    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
+    const seed = (activeTahun % 7) || 1;
+    const shift = 0.95 + (seed * 0.012);
+
+    return list.map(item => {
+      const nominal = Math.round(item.nominal_alokasi * scale);
+      const realisasi = Math.min(nominal, Math.round(item.realisasi_total * scale * shift));
+      return {
+        ...item,
+        nominal_alokasi: nominal,
+        realisasi_total: realisasi,
+        selisih: nominal - realisasi,
+        persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
+      };
+    });
+  }, [config.jenjang, activeTahun]);
+
   const [data, setData] = useState<InstitusiPendidikan[]>(rawData);
+
+  useEffect(() => {
+    setData(rawData);
+  }, [rawData]);
+
   const [search, setSearch] = useState('');
   const [selectedProvinsiId, setSelectedProvinsiId] = useState('');
   const [selectedKabKotaName, setSelectedKabKotaName] = useState('');
@@ -173,7 +201,7 @@ export default function JenjangPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title={`Jenjang: ${config.label}`} subtitle={`Data alokasi dan realisasi institusi ${config.label}`} />
+      <Header title={`Jenjang: ${config.label}`} subtitle={`Data alokasi dan realisasi institusi ${config.label} Tahun ${activeTahun}`} />
 
       <div className="p-6">
         {/* Toolbar */}
@@ -273,7 +301,11 @@ export default function JenjangPage() {
               {filtered.map((row, idx) => (
                 <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                   <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
-                  <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_institusi}</td>
+                  <td className="sheet-cell text-left font-medium text-text-primary">
+                    <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors">
+                      {row.nama_institusi}
+                    </Link>
+                  </td>
                   <td className="sheet-cell text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
                       row.status_sekolah === 'NEGERI' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-purple-100 text-purple-700 border border-purple-200'

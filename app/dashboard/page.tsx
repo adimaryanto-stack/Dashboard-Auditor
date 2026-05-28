@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import MetricCard from '@/components/ui/MetricCard';
 import PctBadge from '@/components/ui/PctBadge';
@@ -11,9 +12,11 @@ import {
   LineChart, Line, Legend, Area, AreaChart
 } from 'recharts';
 import { useMemo } from 'react';
+import { useAppStore } from '@/lib/store';
 
 export default function DashboardPage() {
-  const summary = useMemo(() => getDashboardSummary(), []);
+  const { activeTahun } = useAppStore();
+  const summary = useMemo(() => getDashboardSummary(activeTahun), [activeTahun]);
 
   const barData = summary.per_jenjang.map(j => ({
     jenjang: j.jenjang === 'UNIVERSITAS' ? 'Univ' : j.jenjang,
@@ -37,10 +40,10 @@ export default function DashboardPage() {
           <MetricCard
             title="Total Nominal APBN"
             value={fmtTriliun(summary.total_nominal)}
-            subtitle="Anggaran Kemdikbud 2026"
+            subtitle={`Anggaran Kemdikbud ${activeTahun}`}
             icon={<Wallet size={20} className="text-indigo-600" />}
             accent="indigo"
-            trend={{ value: 6.4, label: 'dari 2025' }}
+            trend={{ value: 6.4, label: `dari ${activeTahun - 1}` }}
           />
           <MetricCard
             title="Total Realisasi"
@@ -86,7 +89,9 @@ export default function DashboardPage() {
                       <td className="sheet-cell text-left font-medium text-text-primary">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full" style={{ background: barColor }} />
-                          {j.jenjang}
+                          <Link href={`/dashboard/jenjang/${j.jenjang.toLowerCase()}`} className="hover:text-accent hover:underline transition-colors">
+                            {j.jenjang}
+                          </Link>
                         </div>
                       </td>
                       <td className="sheet-cell text-right">{fmtTriliun(j.nominal)}</td>

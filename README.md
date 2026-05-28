@@ -1,4 +1,4 @@
-# Dashboard Kementerian Pendidikan 🇮🇩
+# Dashboard Kementerian 🇮🇩
 
 Sistem informasi modern bergaya _spreadsheet_ untuk pemantauan, alokasi, dan transparansi Anggaran Pendapatan dan Belanja Negara (APBN) di sektor Pendidikan Indonesia.
 
@@ -30,7 +30,7 @@ Sistem ini dibangun menggunakan ekosistem *web modern* dengan performa tinggi:
 ## 📂 Struktur Proyek
 
 ```text
-kalkulasi-spreadsheet/
+dashboard-kementerian/
 ├── app/                  # Next.js App Router (Halaman & Layout)
 │   ├── dashboard/        # Halaman utama aplikasi (APBN, Provinsi, Kab/Kota, dll.)
 │   ├── globals.css       # Root stylesheet (Tailwind v4 tokens & utility classes)

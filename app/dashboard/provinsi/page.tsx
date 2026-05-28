@@ -1,15 +1,44 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
-import { alokasiProvinsiData } from '@/lib/data';
+import { useAppStore } from '@/lib/store';
+import { alokasiProvinsiData, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiProvinsi } from '@/types';
 import { Search, Download, RefreshCw, Plus } from 'lucide-react';
 
 export default function ProvinsiPage() {
-  const [data, setData] = useState<AlokasiProvinsi[]>(alokasiProvinsiData);
+  const { activeTahun } = useAppStore();
+
+  const scaledProvinsiData = useMemo(() => {
+    const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
+    const baseTahun = tahunAnggaranData[6];
+    const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
+    const seed = (activeTahun % 7) || 1;
+    const shift = 0.95 + (seed * 0.012);
+
+    return alokasiProvinsiData.map(p => {
+      const nominal = Math.round(p.nominal_alokasi * scale);
+      const realisasi = Math.min(nominal, Math.round(p.realisasi_total * scale * shift));
+      return {
+        ...p,
+        nominal_alokasi: nominal,
+        realisasi_total: realisasi,
+        selisih: nominal - realisasi,
+        persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
+      };
+    });
+  }, [activeTahun]);
+
+  const [data, setData] = useState<AlokasiProvinsi[]>(scaledProvinsiData);
+
+  useEffect(() => {
+    setData(scaledProvinsiData);
+  }, [scaledProvinsiData]);
+
   const [search, setSearch] = useState('');
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -85,7 +114,10 @@ export default function ProvinsiPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Provinsi" subtitle="Spreadsheet alokasi anggaran 38 provinsi" />
+      <Header
+        title="Provinsi"
+        subtitle={`Alokasi APBN Pendidikan per Wilayah Provinsi Tahun ${activeTahun}`}
+      />
 
       <div className="p-6">
         {/* Toolbar */}
@@ -132,7 +164,11 @@ export default function ProvinsiPage() {
               {filtered.map((row, idx) => (
                 <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                   <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
-                  <td className="sheet-cell text-left font-medium text-text-primary">{row.provinsi.nama_provinsi}</td>
+                  <td className="sheet-cell text-left font-medium text-text-primary">
+                    <Link href={`/dashboard/provinsi/${row.provinsi_id}`} className="hover:text-accent hover:underline transition-colors">
+                      {row.provinsi.nama_provinsi}
+                    </Link>
+                  </td>
                   {renderCell(row, 'nominal')}
                   {renderCell(row, 'realisasi')}
                   <td className="sheet-cell text-right text-rose-600">{fmtTriliun(row.selisih)}</td>
