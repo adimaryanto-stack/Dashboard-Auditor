@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/store';
 import { getRincianPengeluaranBulanan } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { RincianPengeluaranItem } from '@/types';
-import { ArrowLeft, Download, Plus } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 
 export default function RincianPengeluaranPage() {
   const params = useParams();
@@ -24,8 +24,6 @@ export default function RincianPengeluaranPage() {
 
   // Editable state
   const [items, setItems] = useState<RincianPengeluaranItem[]>([]);
-  const [editingCell, setEditingCell] = useState<{ id: string; field: 'harga_satuan' | 'qty' } | null>(null);
-  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     if (rincianData) {
@@ -54,67 +52,13 @@ export default function RincianPengeluaranPage() {
   const pajakNominal = Math.round(subTotal * pajakPersen / 100);
   const total = subTotal + pajakNominal;
 
-  // ===== Editing =====
-  const startEdit = (id: string, field: 'harga_satuan' | 'qty', value: number) => {
-    setEditingCell({ id, field });
-    setEditValue(String(value));
-  };
-
-  const commitEdit = () => {
-    if (!editingCell) return;
-    const parsed = Number(editValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setItems(prev => prev.map(item => {
-        if (item.id !== editingCell.id) return item;
-        const harga = editingCell.field === 'harga_satuan' ? parsed : item.harga_satuan;
-        const qty = editingCell.field === 'qty' ? parsed : item.qty;
-        return { ...item, harga_satuan: harga, qty, jumlah: harga * qty };
-      }));
-    }
-    setEditingCell(null);
-  };
-
   const renderEditableCell = (row: RincianPengeluaranItem, field: 'harga_satuan' | 'qty') => {
     const value = row[field];
-    const isEditing = editingCell?.id === row.id && editingCell?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEdit(); }
-              if (e.key === 'Escape') setEditingCell(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEdit(row.id, field, value)}>
+      <td className="sheet-cell text-right">
         {field === 'qty' ? value.toLocaleString('id-ID') : fmtRupiah(value)}
       </td>
     );
-  };
-
-  // ===== Add new item =====
-  const addItem = () => {
-    const newId = `ri-new-${Date.now()}`;
-    setItems(prev => [...prev, {
-      id: newId,
-      nomor: prev.length + 1,
-      nama_produk_jasa: 'Item Baru',
-      harga_satuan: 0,
-      qty: 1,
-      jumlah: 0,
-    }]);
   };
 
   return (
@@ -158,10 +102,6 @@ export default function RincianPengeluaranPage() {
             Nama Produk / Jasa
           </span>
           <span className="text-xs text-text-muted flex-1">{items.length} item</span>
-          <button className="btn btn-ghost" onClick={addItem}>
-            <Plus size={14} />
-            Tambah Item
-          </button>
           <button className="btn btn-primary">
             <Download size={14} />
             Ekspor Excel
@@ -227,10 +167,6 @@ export default function RincianPengeluaranPage() {
             </tfoot>
           </table>
         </div>
-
-        <p className="text-xs text-text-muted">
-          ✏️ Klik sel Harga Satuan atau Qty untuk edit langsung • Jumlah = Harga Satuan × Qty • Total = Sub Total + Pajak {pajakPersen}%
-        </p>
       </div>
     </div>
   );

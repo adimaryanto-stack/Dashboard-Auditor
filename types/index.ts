@@ -71,6 +71,8 @@ export interface InstitusiPendidikan {
   provinsi_nama: string;
   status_sekolah: 'NEGERI' | 'SWASTA';
   nomor_rekening?: string;
+  alamat?: string;
+  nisn?: string;
   nominal_alokasi: number;
   realisasi_total: number;
   selisih: number;
@@ -157,3 +159,25 @@ export interface TrenTahunan {
   nominal: number;
   realisasi: number;
 }
+
+export interface AuditAnomaly {
+  id: string;
+  institusi_id: string;
+  nama_institusi: string;
+  jenjang: Jenjang;
+  bulan: string;
+  nomor_bulan: number;
+  tipe_anomali: string;
+  keterangan: string;
+  nominal_selisih: number;
+  tingkat_keparahan: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'TEMUAN' | 'INVESTIGASI' | 'SELESAI';
+  tanggal_ditemukan: string;
+  audit_what?: string;
+  audit_why?: string;
+  audit_where?: string;
+  audit_when?: string;
+  audit_who?: string;
+  audit_how?: string;
+}
+

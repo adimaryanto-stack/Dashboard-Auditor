@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dashboard Kementerian",
-  description: "Sistem monitoring alokasi dan realisasi anggaran Kementerian",
-  keywords: ["transparansi", "anggaran", "pendidikan", "APBN", "Indonesia", "budget"],
+  title: "Dashboard Auditor",
+  description: "Sistem monitoring dan audit alokasi serta realisasi anggaran Pendidikan Nasional",
+  keywords: ["transparansi", "anggaran", "pendidikan", "APBN", "Indonesia", "budget", "audit", "auditor"],
 };
 
 export default function RootLayout({

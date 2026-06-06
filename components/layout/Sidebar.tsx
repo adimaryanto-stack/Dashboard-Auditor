@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import {
   LayoutDashboard, DollarSign, MapPin, Building2,
   GraduationCap, Users, ChevronDown, ChevronRight,
-  Menu, X, Landmark, School
+  Menu, X, Landmark, School, ShieldCheck
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -56,7 +56,7 @@ export default function Sidebar() {
             </div>
             <div>
               <h1 className="text-sm font-bold text-text-primary leading-tight">Dashboard</h1>
-              <p className="text-xs text-text-muted">Kementerian</p>
+              <p className="text-xs text-text-muted">Auditor</p>
             </div>
           </div>
         </div>
@@ -115,6 +115,11 @@ export default function Sidebar() {
             <span>Profil Institusi</span>
           </Link>
 
+          <Link href="/dashboard/audit" className={`sidebar-item ${pathname.includes('/audit') ? 'active' : ''}`}>
+            <ShieldCheck size={18} />
+            <span>Audit Anggaran</span>
+          </Link>
+
           <Link href="/dashboard/users" className={`sidebar-item ${isActive('/dashboard/users') ? 'active' : ''}`}>
             <Users size={18} />
             <span>User Manager</span>
@@ -129,7 +134,7 @@ export default function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-text-primary truncate">Super Admin</p>
-              <p className="text-[10px] text-text-muted truncate">admin@kemdikbud.go.id</p>
+              <p className="text-[10px] text-text-muted truncate">admin@auditor.go.id</p>
             </div>
           </div>
         </div>

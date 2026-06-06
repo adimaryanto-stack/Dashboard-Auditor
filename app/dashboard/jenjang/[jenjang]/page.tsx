@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
@@ -9,7 +9,7 @@ import { useAppStore } from '@/lib/store';
 import { getInstitusiByJenjang, alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { Jenjang, InstitusiPendidikan } from '@/types';
-import { Search, Download, Plus, Upload } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
 
 const jenjangLabels: Record<string, { label: string; jenjang: Jenjang }> = {
   universitas: { label: 'Universitas', jenjang: 'UNIVERSITAS' },
@@ -56,55 +56,6 @@ export default function JenjangPage() {
   const [selectedProvinsiId, setSelectedProvinsiId] = useState('');
   const [selectedKabKotaName, setSelectedKabKotaName] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
-  const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const csvText = event.target?.result as string;
-      const lines = csvText.split('\n');
-      
-      const newItems: InstitusiPendidikan[] = [];
-      // Skip header line
-      for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const columns = lines[i].split(',');
-        if (columns.length >= 4) {
-          const [nama, npsn, kabkota, prov] = columns.map(c => c.trim().replace(/^"|"$/g, ''));
-          newItems.push({
-            id: `inst-imp-${Date.now()}-${i}`,
-            npsn: npsn || `IMP${i}`,
-            nama_institusi: nama || 'Sekolah Import',
-            jenjang: config.jenjang,
-            kabupaten_kota_id: 'auto-match',
-            kabupaten_kota_nama: kabkota || 'Kabupaten Bogor',
-            provinsi_nama: prov || 'Jawa Barat',
-            status_sekolah: nama.toLowerCase().includes('swasta') ? 'SWASTA' : 'NEGERI',
-            nominal_alokasi: 0,
-            realisasi_total: 0,
-            selisih: 0,
-            persentase_penyerapan: 0,
-            updated_at: new Date().toISOString().split('T')[0]
-          });
-        }
-      }
-
-      if (newItems.length > 0) {
-        setData(prev => [...newItems, ...prev]);
-        alert(`${newItems.length} data institusi berhasil diimport dan dicocokkan!`);
-      } else {
-        alert('Gagal membaca data CSV. Pastikan format: Nama Sekolah, NPSN, Kabupaten/Kota, Provinsi');
-      }
-      
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-    reader.readAsText(file);
-  };
 
   // Reset when jenjang changes
   useMemo(() => { setData(rawData); }, [rawData]);
@@ -144,56 +95,10 @@ export default function JenjangPage() {
     return { nominal: nom, realisasi: real, selisih: nom - real, pct: nom > 0 ? (real / nom) * 100 : 0 };
   }, [filtered]);
 
-  const startEdit = (id: string, field: 'nominal' | 'realisasi', value: number) => {
-    setEditingCell({ id, field });
-    setEditValue(String(value));
-  };
-
-  const commitEdit = () => {
-    if (!editingCell) return;
-    const parsed = Number(editValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setData(prev => prev.map(inst => {
-        if (inst.id !== editingCell.id) return inst;
-        const nominal = editingCell.field === 'nominal' ? parsed : inst.nominal_alokasi;
-        const realisasi = editingCell.field === 'realisasi' ? parsed : inst.realisasi_total;
-        return {
-          ...inst,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0,
-        };
-      }));
-    }
-    setEditingCell(null);
-  };
-
   const renderEditableCell = (row: InstitusiPendidikan, field: 'nominal' | 'realisasi') => {
     const value = field === 'nominal' ? row.nominal_alokasi : row.realisasi_total;
-    const isEditing = editingCell?.id === row.id && editingCell?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEdit(); }
-              if (e.key === 'Escape') setEditingCell(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEdit(row.id, field, value)}>
+      <td className="sheet-cell text-right">
         {fmtRupiah(value)}
       </td>
     );
@@ -259,21 +164,6 @@ export default function JenjangPage() {
             />
           </div>
           <span className="text-xs text-text-muted flex-1">{filtered.length} institusi</span>
-          <input 
-            type="file" 
-            accept=".csv" 
-            ref={fileInputRef} 
-            onChange={handleImport} 
-            className="hidden" 
-          />
-          <button className="btn btn-ghost" onClick={() => fileInputRef.current?.click()}>
-            <Upload size={14} />
-            Import CSV
-          </button>
-          <button className="btn btn-ghost">
-            <Plus size={14} />
-            Tambah
-          </button>
           <button className="btn btn-primary">
             <Download size={14} />
             Ekspor Excel
@@ -308,7 +198,7 @@ export default function JenjangPage() {
                   </td>
                   <td className="sheet-cell text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                      row.status_sekolah === 'NEGERI' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-purple-100 text-purple-700 border border-purple-200'
+                       row.status_sekolah === 'NEGERI' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-purple-100 text-purple-700 border border-purple-200'
                     }`}>
                       {row.status_sekolah}
                     </span>
@@ -343,10 +233,6 @@ export default function JenjangPage() {
             </tfoot>
           </table>
         </div>
-
-        <p className="mt-3 text-xs text-text-muted">
-          ✏️ Klik sel untuk edit • Cascade update: Institusi → Kabkota → Provinsi
-        </p>
       </div>
     </div>
   );

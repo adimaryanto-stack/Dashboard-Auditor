@@ -9,7 +9,7 @@ import { useAppStore } from '@/lib/store';
 import { alokasiProvinsiData, getKabkotaByProvinsi, getJenjangBreakdownByProvinsi, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiProvinsi, AlokasiKabupatenKota, JenjangBreakdownProvinsi } from '@/types';
-import { ArrowLeft, Banknote, Download, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, Banknote, Download, Sparkles } from 'lucide-react';
 
 export default function ProvinsiDetailPage() {
   const params = useParams();
@@ -69,9 +69,6 @@ export default function ProvinsiDetailPage() {
     setKabkotaList(scaledKabkotaList);
   }, [scaledKabkotaList]);
 
-  const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal_alokasi' | 'realisasi_total' } | null>(null);
-  const [editValue, setEditValue] = useState('');
-
   if (!provData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -101,63 +98,10 @@ export default function ProvinsiDetailPage() {
     return getJenjangBreakdownByProvinsi(id, totals.nominal);
   }, [id, totals.nominal]);
 
-  // Inline editing functions
-  const startEdit = (rowId: string, field: 'nominal_alokasi' | 'realisasi_total', currentValue: number) => {
-    setEditingCell({ id: rowId, field });
-    setEditValue(String(currentValue));
-  };
-
-  const commitEdit = () => {
-    if (!editingCell) return;
-    const parsed = Number(editValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setKabkotaList(prev => prev.map(item => {
-        if (item.id !== editingCell.id) return item;
-        const nominal = editingCell.field === 'nominal_alokasi' ? parsed : item.nominal_alokasi;
-        const realisasi = editingCell.field === 'realisasi_total' ? parsed : item.realisasi_total;
-        return {
-          ...item,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
-        };
-      }));
-    }
-    setEditingCell(null);
-  };
-
   const renderEditableCell = (row: AlokasiKabupatenKota, field: 'nominal_alokasi' | 'realisasi_total') => {
     const value = row[field];
-    const isEditing = editingCell?.id === row.id && editingCell?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault();
-                commitEdit();
-              }
-              if (e.key === 'Escape') setEditingCell(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm pr-1"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td
-        className="sheet-cell sheet-cell-editable text-right font-mono cursor-pointer hover:bg-slate-50 transition-colors"
-        onClick={() => startEdit(row.id, field, value)}
-      >
+      <td className="sheet-cell text-right font-mono">
         {fmtRupiah(value)}
       </td>
     );
@@ -342,11 +286,6 @@ export default function ProvinsiDetailPage() {
             </table>
           </div>
         </div>
-
-        <p className="text-xs text-text-muted flex items-center gap-1">
-          <span>✏️</span>
-          <span>Klik langsung pada kolom <strong>Nominal Anggaran</strong> atau <strong>Realisasi</strong> untuk mengubah data • Tekan <strong>Enter</strong> untuk menyimpan</span>
-        </p>
       </div>
     </div>
   );

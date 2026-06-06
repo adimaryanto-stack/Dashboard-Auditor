@@ -1,10 +1,10 @@
-# Dashboard Kementerian 🇮🇩
+# Dashboard Auditor 🇮🇩
 
-Sistem informasi modern bergaya _spreadsheet_ untuk pemantauan, alokasi, dan transparansi Anggaran Pendapatan dan Belanja Negara (APBN) di sektor Pendidikan Indonesia.
+Sistem informasi modern bergaya _spreadsheet_ untuk pemantauan, alokasi, transparansi, dan audit Anggaran Pendapatan dan Belanja Negara (APBN) di sektor Pendidikan Indonesia.
 
-Aplikasi ini menyajikan *dashboard* dengan performa tinggi yang memungkinkan instansi terkait (mulai dari level nasional hingga institusi pendidikan seperti sekolah dan universitas) memantau alokasi vs realisasi anggaran secara berjenjang dan real-time.
+Aplikasi ini menyajikan *dashboard* dengan performa tinggi yang memungkinkan instansi terkait (mulai dari auditor tingkat nasional hingga daerah) memantau alokasi vs realisasi anggaran secara berjenjang dan real-time.
 
-![Dashboard Kementerian Pendidikan](public/vercel.svg) *(Ganti dengan screenshot riil nanti)*
+![Dashboard Auditor](public/vercel.svg) *(Ganti dengan screenshot riil nanti)*
 
 ## ✨ Fitur Utama
 
@@ -30,7 +30,7 @@ Sistem ini dibangun menggunakan ekosistem *web modern* dengan performa tinggi:
 ## 📂 Struktur Proyek
 
 ```text
-dashboard-kementerian/
+dashboard-auditor/
 ├── app/                  # Next.js App Router (Halaman & Layout)
 │   ├── dashboard/        # Halaman utama aplikasi (APBN, Provinsi, Kab/Kota, dll.)
 │   ├── globals.css       # Root stylesheet (Tailwind v4 tokens & utility classes)

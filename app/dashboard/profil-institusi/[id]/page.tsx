@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/store';
 import { getProfilInstitusi } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { SumberDanaInstitusi, PengeluaranBulananInstitusi } from '@/types';
-import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown, Edit3 } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
 
 export default function ProfilInstitusiDetailPage() {
   const params = useParams();
@@ -22,7 +22,6 @@ export default function ProfilInstitusiDetailPage() {
   const [sumberDana, setSumberDana] = useState<SumberDanaInstitusi[]>([]);
   const [pengeluaran, setPengeluaran] = useState<PengeluaranBulananInstitusi[]>([]);
   const [nomorRekening, setNomorRekening] = useState('');
-  const [editingRekening, setEditingRekening] = useState(false);
 
   useEffect(() => {
     if (profilData) {
@@ -31,14 +30,6 @@ export default function ProfilInstitusiDetailPage() {
       setNomorRekening(profilData.institusi.nomor_rekening);
     }
   }, [profilData]);
-
-  // Sumber Dana editing
-  const [editingSD, setEditingSD] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
-  const [editSDValue, setEditSDValue] = useState('');
-
-  // Pengeluaran editing
-  const [editingPB, setEditingPB] = useState<{ id: string; field: 'nominal_pengeluaran' | 'qty' } | null>(null);
-  const [editPBValue, setEditPBValue] = useState('');
 
   if (!profilData) {
     return (
@@ -64,72 +55,11 @@ export default function ProfilInstitusiDetailPage() {
   const saldoSurplusDefisit = totalNominalSumber - totalRealisasiSumber;
   const totalPengeluaran = pengeluaran.reduce((s, p) => s + p.sub_total, 0);
 
-  // ===== Sumber Dana Editing =====
-  const startEditSD = (id: string, field: 'nominal' | 'realisasi', value: number) => {
-    setEditingSD({ id, field });
-    setEditSDValue(String(value));
-  };
-
-  const commitEditSD = () => {
-    if (!editingSD) return;
-    const parsed = Number(editSDValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setSumberDana(prev => prev.map(item => {
-        if (item.id !== editingSD.id) return item;
-        const nominal = editingSD.field === 'nominal' ? parsed : item.nominal;
-        const realisasi = editingSD.field === 'realisasi' ? parsed : item.realisasi;
-        return { ...item, nominal, realisasi, saldo_di_bank: nominal - realisasi };
-      }));
-    }
-    setEditingSD(null);
-  };
-
-  // ===== Pengeluaran Bulanan Editing =====
-  const startEditPB = (id: string, field: 'nominal_pengeluaran' | 'qty', value: number) => {
-    setEditingPB({ id, field });
-    setEditPBValue(String(value));
-  };
-
-  const commitEditPB = () => {
-    if (!editingPB) return;
-    const parsed = Number(editPBValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setPengeluaran(prev => prev.map(item => {
-        if (item.id !== editingPB.id) return item;
-        const nom = editingPB.field === 'nominal_pengeluaran' ? parsed : item.nominal_pengeluaran;
-        const qty = editingPB.field === 'qty' ? parsed : item.qty;
-        return { ...item, nominal_pengeluaran: nom, qty, sub_total: nom * qty };
-      }));
-    }
-    setEditingPB(null);
-  };
-
   // ===== Shared editable cell render =====
   const renderEditableCellSD = (row: SumberDanaInstitusi, field: 'nominal' | 'realisasi') => {
     const value = row[field];
-    const isEditing = editingSD?.id === row.id && editingSD?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editSDValue}
-            onChange={(e) => setEditSDValue(e.target.value)}
-            onBlur={commitEditSD}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEditSD(); }
-              if (e.key === 'Escape') setEditingSD(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEditSD(row.id, field, value)}>
+      <td className="sheet-cell text-right">
         {fmtRupiah(value)}
       </td>
     );
@@ -137,29 +67,8 @@ export default function ProfilInstitusiDetailPage() {
 
   const renderEditableCellPB = (row: PengeluaranBulananInstitusi, field: 'nominal_pengeluaran' | 'qty') => {
     const value = row[field];
-    const isEditing = editingPB?.id === row.id && editingPB?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editPBValue}
-            onChange={(e) => setEditPBValue(e.target.value)}
-            onBlur={commitEditPB}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEditPB(); }
-              if (e.key === 'Escape') setEditingPB(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td className="sheet-cell sheet-cell-editable text-right" onClick={() => startEditPB(row.id, field, value)}>
+      <td className="sheet-cell text-right">
         {field === 'qty' ? value : fmtRupiah(value)}
       </td>
     );
@@ -187,30 +96,27 @@ export default function ProfilInstitusiDetailPage() {
           <div className="metric-card accent-indigo col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <Banknote size={18} className="text-indigo-500" />
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Nama Institusi Pendidikan</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Detail Institusi Pendidikan</span>
             </div>
-            <p className="text-lg font-bold text-text-primary mb-2">{institusi.nama_institusi}</p>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-text-muted">Nomor Rekening Bank Himbara:</span>
-              {editingRekening ? (
-                <input
-                  autoFocus
-                  type="text"
-                  value={nomorRekening}
-                  onChange={(e) => setNomorRekening(e.target.value)}
-                  onBlur={() => setEditingRekening(false)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setEditingRekening(false); }}
-                  className="bg-white/70 border border-accent rounded px-2 py-0.5 text-sm font-mono outline-none"
-                />
-              ) : (
-                <span
-                  className="font-mono font-medium text-text-primary cursor-pointer hover:text-accent transition-colors flex items-center gap-1"
-                  onClick={() => setEditingRekening(true)}
-                >
-                  {nomorRekening || '—'}
-                  <Edit3 size={12} className="text-text-muted" />
-                </span>
-              )}
+            <p className="text-lg font-bold text-text-primary mb-1">{institusi.nama_institusi}</p>
+            
+            <div className="space-y-1.5 mt-3 text-xs">
+              <div className="flex justify-between border-b border-slate-100 pb-1">
+                <span className="text-text-muted">NPSN:</span>
+                <span className="font-semibold text-text-primary font-mono">{institusi.npsn || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-1">
+                <span className="text-text-muted">NISN Institusi:</span>
+                <span className="font-semibold text-text-primary font-mono">{institusi.nisn || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-1">
+                <span className="text-text-muted">No. Rekening Bank Himbara:</span>
+                <span className="font-semibold text-text-primary font-mono">{nomorRekening || '—'}</span>
+              </div>
+              <div className="pt-1">
+                <span className="text-text-muted block mb-0.5">Alamat Lengkap:</span>
+                <span className="text-text-primary font-medium leading-relaxed">{institusi.alamat || '—'}</span>
+              </div>
             </div>
           </div>
 
@@ -344,10 +250,6 @@ export default function ProfilInstitusiDetailPage() {
             </table>
           </div>
         </div>
-
-        <p className="text-xs text-text-muted">
-          ✏️ Klik sel Nominal, Realisasi, atau Qty untuk edit langsung • Kalkulasi Saldo di Bank dan Sub Total otomatis
-        </p>
       </div>
     </div>
   );

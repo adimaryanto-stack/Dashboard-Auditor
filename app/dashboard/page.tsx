@@ -32,7 +32,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Dashboard" subtitle="Ringkasan nasional anggaran Kementerian Pendidikan RI" />
+      <Header title="Dashboard" subtitle="Ringkasan analisis audit anggaran Pendidikan Nasional" />
 
       <div className="p-6 space-y-6">
         {/* Metric Cards */}
@@ -40,7 +40,7 @@ export default function DashboardPage() {
           <MetricCard
             title="Total Nominal APBN"
             value={fmtTriliun(summary.total_nominal)}
-            subtitle={`Anggaran Kemdikbud ${activeTahun}`}
+            subtitle={`Anggaran Pendidikan ${activeTahun}`}
             icon={<Wallet size={20} className="text-indigo-600" />}
             accent="indigo"
             trend={{ value: 6.4, label: `dari ${activeTahun - 1}` }}

@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/store';
 import { alokasiProvinsiData, tahunAnggaranData } from '@/lib/data';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiProvinsi } from '@/types';
-import { Search, Download, RefreshCw, Plus } from 'lucide-react';
+import { Search, Download, RefreshCw } from 'lucide-react';
 
 export default function ProvinsiPage() {
   const { activeTahun } = useAppStore();
@@ -40,8 +40,6 @@ export default function ProvinsiPage() {
   }, [scaledProvinsiData]);
 
   const [search, setSearch] = useState('');
-  const [editingCell, setEditingCell] = useState<{ id: string; field: 'nominal' | 'realisasi' } | null>(null);
-  const [editValue, setEditValue] = useState('');
 
   const filtered = useMemo(() => {
     if (!search) return data;
@@ -54,59 +52,10 @@ export default function ProvinsiPage() {
     return { nominal: nom, realisasi: real, selisih: nom - real, pct: nom > 0 ? (real / nom) * 100 : 0 };
   }, [filtered]);
 
-  const startEdit = (id: string, field: 'nominal' | 'realisasi', value: number) => {
-    setEditingCell({ id, field });
-    setEditValue(String(value));
-  };
-
-  const commitEdit = () => {
-    if (!editingCell) return;
-    const parsed = Number(editValue);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setData(prev => prev.map(p => {
-        if (p.id !== editingCell.id) return p;
-        const nominal = editingCell.field === 'nominal' ? parsed : p.nominal_alokasi;
-        const realisasi = editingCell.field === 'realisasi' ? parsed : p.realisasi_total;
-        return {
-          ...p,
-          nominal_alokasi: nominal,
-          realisasi_total: realisasi,
-          selisih: nominal - realisasi,
-          persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
-        };
-      }));
-    }
-    setEditingCell(null);
-  };
-
   const renderCell = (row: AlokasiProvinsi, field: 'nominal' | 'realisasi') => {
     const value = field === 'nominal' ? row.nominal_alokasi : row.realisasi_total;
-    const isEditing = editingCell?.id === row.id && editingCell?.field === field;
-
-    if (isEditing) {
-      return (
-        <td className="sheet-cell sheet-cell-editing text-right">
-          <input
-            autoFocus
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEdit(); }
-              if (e.key === 'Escape') setEditingCell(null);
-            }}
-            className="w-full bg-transparent outline-none text-right font-mono text-sm"
-          />
-        </td>
-      );
-    }
-
     return (
-      <td
-        className="sheet-cell sheet-cell-editable text-right"
-        onClick={() => startEdit(row.id, field, value)}
-      >
+      <td className="sheet-cell text-right">
         {fmtRupiah(value)}
       </td>
     );
@@ -133,10 +82,6 @@ export default function ProvinsiPage() {
             />
           </div>
           <span className="text-xs text-text-muted flex-1">{filtered.length} provinsi</span>
-          <button className="btn btn-primary">
-            <Plus size={14} />
-            Tambah Provinsi
-          </button>
           <button className="btn btn-ghost">
             <RefreshCw size={14} />
             Refresh
@@ -192,10 +137,6 @@ export default function ProvinsiPage() {
             </tfoot>
           </table>
         </div>
-
-        <p className="mt-3 text-xs text-text-muted">
-          ✏️ Klik sel Nominal atau Realisasi untuk edit langsung • Tekan Enter untuk simpan • Escape untuk batal
-        </p>
       </div>
     </div>
   );

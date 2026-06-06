@@ -17,6 +17,20 @@ import {
   RincianPengeluaranBulanan,
   JenjangBreakdownProvinsi,
 } from '@/types';
+import { useAppStore } from '@/lib/store';
+
+function getDb() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const state = useAppStore.getState();
+    if (state && state.isSupabaseMode && state.dbData) {
+      return state.dbData;
+    }
+  } catch (e) {
+    // safe fallback
+  }
+  return null;
+}
 
 // Deterministic pseudo-random based on seed
 function seededValues(count: number, min: number, max: number, seed: number): number[] {
@@ -83,7 +97,11 @@ const targetTotalReal = Math.round(originalTotalReal * (targetTotal2026 / origin
 let distributedProvNominal = 0;
 let distributedProvRealisasi = 0;
 
-export const alokasiProvinsiData: AlokasiProvinsi[] = provinsiNames.map((nama, i) => {
+export function updateAlokasiProvinsiData(newData: AlokasiProvinsi[]) {
+  alokasiProvinsiData = newData;
+}
+
+export let alokasiProvinsiData: AlokasiProvinsi[] = provinsiNames.map((nama, i) => {
   const isLast = i === provinsiNames.length - 1;
   const baseNom = nominalDistribution[i] * 1_000_000_000_000;
   
@@ -199,6 +217,35 @@ const kabkotaPerProvinsi: KT[][] = [
 const kabkotaPctSeeds = seededValues(600, 42, 92, 42);
 
 export function getKabkotaByProvinsi(provinsiId: string): AlokasiKabupatenKota[] {
+  const db = getDb();
+  if (db) {
+    const provAlokasi = db.alokasi_provinsi.find((p: any) => p.provinsi_id === provinsiId);
+    if (!provAlokasi) return [];
+    return db.alokasi_kabupaten_kota
+      .filter((akk: any) => akk.alokasi_provinsi_id === provAlokasi.id)
+      .map((akk: any) => {
+        const kab = db.kabupaten_kota.find((k: any) => k.id === akk.kabupaten_kota_id);
+        return {
+          id: akk.id,
+          alokasi_provinsi_id: akk.alokasi_provinsi_id,
+          kabupaten_kota_id: akk.kabupaten_kota_id,
+          kabupaten_kota: kab || {
+            id: akk.kabupaten_kota_id,
+            provinsi_id: provinsiId,
+            kode_kabupaten_kota: '',
+            nama_kabupaten_kota: akk.provinsi_nama,
+            tipe: 'KABUPATEN'
+          },
+          provinsi_nama: akk.provinsi_nama,
+          nominal_alokasi: Number(akk.nominal_alokasi),
+          realisasi_total: Number(akk.realisasi_total),
+          selisih: Number(akk.selisih),
+          persentase_penyerapan: Number(akk.persentase_penyerapan),
+          updated_at: akk.updated_at
+        };
+      });
+  }
+
   const provIdx = parseInt(provinsiId.replace('p-', ''), 10) - 1;
   const templates = kabkotaPerProvinsi[provIdx] || [];
   const provData = alokasiProvinsiData.find(p => p.provinsi_id === provinsiId);
@@ -257,6 +304,31 @@ export function getKabkotaByProvinsi(provinsiId: string): AlokasiKabupatenKota[]
 }
 
 export function getAllKabkota(): AlokasiKabupatenKota[] {
+  const db = getDb();
+  if (db) {
+    return db.alokasi_kabupaten_kota.map((akk: any) => {
+      const kab = db.kabupaten_kota.find((k: any) => k.id === akk.kabupaten_kota_id);
+      return {
+        id: akk.id,
+        alokasi_provinsi_id: akk.alokasi_provinsi_id,
+        kabupaten_kota_id: akk.kabupaten_kota_id,
+        kabupaten_kota: kab || {
+          id: akk.kabupaten_kota_id,
+          provinsi_id: '',
+          kode_kabupaten_kota: '',
+          nama_kabupaten_kota: akk.provinsi_nama,
+          tipe: 'KABUPATEN'
+        },
+        provinsi_nama: akk.provinsi_nama,
+        nominal_alokasi: Number(akk.nominal_alokasi),
+        realisasi_total: Number(akk.realisasi_total),
+        selisih: Number(akk.selisih),
+        persentase_penyerapan: Number(akk.persentase_penyerapan),
+        updated_at: akk.updated_at
+      };
+    });
+  }
+
   return alokasiProvinsiData.flatMap(p => getKabkotaByProvinsi(p.provinsi_id));
 }
 
@@ -310,16 +382,19 @@ function generateInstitusi(names: string[], jenjang: Jenjang, baseNominal: numbe
     const pct = instPctValues[i % instPctValues.length];
     const realisasi = Math.round(nominal * pct / 100);
     const kab = kabkotaList[i % kabkotaList.length];
+    const kabName = kab?.kabupaten_kota?.nama_kabupaten_kota || 'Kabupaten Bogor';
     return {
       id: `inst-${jenjang.toLowerCase()}-${i}`,
       npsn: `${jenjang === 'UNIVERSITAS' ? '3' : jenjang === 'SMA' ? '2' : jenjang === 'SMP' ? '1' : jenjang === 'SD' ? '0' : '9'}${String(1000 + i)}`,
       nama_institusi: nama,
       jenjang,
       kabupaten_kota_id: kab?.kabupaten_kota?.id || 'k-p-12-0',
-      kabupaten_kota_nama: kab?.kabupaten_kota?.nama_kabupaten_kota || 'Kabupaten Bogor',
+      kabupaten_kota_nama: kabName,
       provinsi_nama: 'Jawa Barat',
       status_sekolah: (i % 3 === 0 || nama.includes('Al-Ikhlas') || nama.includes('Bina') || nama.includes('Pelita')) ? 'SWASTA' : 'NEGERI',
       nomor_rekening: `${123 + i}.${456 + i * 3}.${789 + i * 7}.000`,
+      alamat: `Jl. Pendidikan Raya No. ${i + 15}, ${kabName}, Jawa Barat`,
+      nisn: `889${String(100000 + i)}`,
       nominal_alokasi: Math.round(nominal),
       realisasi_total: realisasi,
       selisih: Math.round(nominal) - realisasi,
@@ -330,6 +405,11 @@ function generateInstitusi(names: string[], jenjang: Jenjang, baseNominal: numbe
 }
 
 export function getInstitusiByJenjang(jenjang: Jenjang): InstitusiPendidikan[] {
+  const db = getDb();
+  if (db) {
+    return db.institusi_pendidikan.filter((i: any) => i.jenjang === jenjang);
+  }
+
   switch (jenjang) {
     case 'UNIVERSITAS': return generateInstitusi(universitas, 'UNIVERSITAS', 2_000_000_000_000);
     case 'SMA': return generateInstitusi(smaNames, 'SMA', 800_000_000_000);
@@ -341,15 +421,19 @@ export function getInstitusiByJenjang(jenjang: Jenjang): InstitusiPendidikan[] {
 }
 
 // === USERS ===
-export const usersData: User[] = [
-  { id: 'u1', username: 'superadmin', email: 'admin@kemdikbud.go.id', role: 'SUPER_ADMIN', is_active: true, created_at: '2024-01-01' },
-  { id: 'u2', username: 'ahmad.fauzi', email: 'a.fauzi@kemdikbud.go.id', role: 'ADMIN', is_active: true, created_at: '2024-02-15' },
+export function updateUsersData(newData: User[]) {
+  usersData = newData;
+}
+
+export let usersData: User[] = [
+  { id: 'u1', username: 'superadmin', email: 'admin@auditor.go.id', role: 'SUPER_ADMIN', is_active: true, created_at: '2024-01-01' },
+  { id: 'u2', username: 'ahmad.fauzi', email: 'a.fauzi@auditor.go.id', role: 'ADMIN', is_active: true, created_at: '2024-02-15' },
   { id: 'u3', username: 'sari.dewi', email: 's.dewi@jabar.go.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-12', is_active: true, created_at: '2024-03-10' },
   { id: 'u4', username: 'budi.santoso', email: 'b.santoso@bandung.go.id', role: 'ADMIN_KABKOTA', kabupaten_kota_id: 'k-p-12-3', is_active: true, created_at: '2024-04-20' },
-  { id: 'u5', username: 'viewer.nasional', email: 'viewer@kemdikbud.go.id', role: 'VIEWER', is_active: true, created_at: '2024-05-01' },
+  { id: 'u5', username: 'viewer.nasional', email: 'viewer@auditor.go.id', role: 'VIEWER', is_active: true, created_at: '2024-05-01' },
   { id: 'u6', username: 'auditor.bpk', email: 'audit@bpk.go.id', role: 'AUDITOR', is_active: true, created_at: '2024-06-01' },
   { id: 'u7', username: 'rina.wulan', email: 'r.wulan@jatim.go.id', role: 'ADMIN_PROVINSI', provinsi_id: 'p-15', is_active: true, created_at: '2024-07-01' },
-  { id: 'u8', username: 'doni.pratama', email: 'd.pratama@kemdikbud.go.id', role: 'ADMIN', is_active: false, created_at: '2024-01-15' },
+  { id: 'u8', username: 'doni.pratama', email: 'd.pratama@auditor.go.id', role: 'ADMIN', is_active: false, created_at: '2024-01-15' },
 ];
 
 // === DASHBOARD SUMMARY ===
@@ -357,6 +441,49 @@ export const usersData: User[] = [
 const trendRealisasiPct = [68.2, 70.5, 72.1, 65.8, 71.3, 73.8, 67.5];
 
 export function getDashboardSummary(tahun: number = 2026): DashboardSummary {
+  const db = getDb();
+  if (db) {
+    const targetTahun = db.tahun_anggaran.find((t: any) => t.tahun === tahun) || db.tahun_anggaran[0];
+    if (!targetTahun) {
+      return { total_nominal: 0, total_realisasi: 0, persentase_penyerapan: 0, per_jenjang: [], tren_tahunan: [] };
+    }
+    const totalNominal = Number(targetTahun.total_anggaran);
+    const provAlokasis = db.alokasi_provinsi.filter((ap: any) => ap.tahun_anggaran_id === targetTahun.id);
+    const totalRealisasi = provAlokasis.reduce((sum: number, ap: any) => sum + Number(ap.realisasi_total), 0);
+
+    const jenjangs: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
+    const perJenjang = jenjangs.map(j => {
+      const schools = db.institusi_pendidikan.filter((i: any) => i.jenjang === j);
+      const nominal = schools.reduce((sum: number, i: any) => sum + Number(i.nominal_alokasi), 0);
+      const realisasi = schools.reduce((sum: number, i: any) => sum + Number(i.realisasi_total), 0);
+      return {
+        jenjang: j,
+        nominal,
+        realisasi,
+        persentase: nominal > 0 ? (realisasi / nominal) * 100 : 0
+      };
+    });
+
+    const activeYears = db.tahun_anggaran.filter((t: any) => t.status !== 'DRAFT');
+    const trenTahunan = activeYears.map((t: any) => {
+      const yearAlokasis = db.alokasi_provinsi.filter((ap: any) => ap.tahun_anggaran_id === t.id);
+      const real = yearAlokasis.reduce((sum: number, ap: any) => sum + Number(ap.realisasi_total), 0);
+      return {
+        tahun: Number(t.tahun),
+        nominal: Number(t.total_anggaran),
+        realisasi: real || Math.round(t.total_anggaran * 0.7)
+      };
+    });
+
+    return {
+      total_nominal: totalNominal,
+      total_realisasi: totalRealisasi,
+      persentase_penyerapan: totalNominal > 0 ? (totalRealisasi / totalNominal) * 100 : 0,
+      per_jenjang,
+      tren_tahunan: trenTahunan.sort((a, b) => a.tahun - b.tahun)
+    };
+  }
+
   const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6]; // default to 2026
   const baseTahun = tahunAnggaranData[6]; // 2026 (769.1 T)
   const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
@@ -492,6 +619,41 @@ function generatePengeluaranBulanan(institusi: InstitusiPendidikan): Pengeluaran
 }
 
 export function getProfilInstitusi(id: string, tahun: number = 2026): ProfilInstitusi | null {
+  const db = getDb();
+  if (db) {
+    const inst = db.institusi_pendidikan.find((i: any) => i.id === id);
+    if (!inst) return null;
+    const sumberDana = db.sumber_dana_institusi.filter((sd: any) => sd.institusi_id === id);
+    const pb = db.pengeluaran_bulanan_institusi
+      .filter((p: any) => p.institusi_id === id)
+      .sort((a: any, b: any) => a.nomor - b.nomor);
+    const totalNominalSumber = sumberDana.reduce((s: number, d: any) => s + Number(d.nominal), 0);
+    const totalRealisasiSumber = sumberDana.reduce((s: number, d: any) => s + Number(d.realisasi), 0);
+    const saldoSurplusDefisit = totalNominalSumber - totalRealisasiSumber;
+
+    return {
+      institusi: {
+        ...inst,
+        nominal_alokasi: Number(inst.nominal_alokasi),
+        realisasi_total: Number(inst.realisasi_total),
+        selisih: Number(inst.selisih),
+        persentase_penyerapan: Number(inst.persentase_penyerapan)
+      },
+      sumber_dana: sumberDana.map((sd: any) => ({
+        ...sd,
+        nominal: Number(sd.nominal),
+        realisasi: Number(sd.realisasi),
+        saldo_di_bank: Number(sd.saldo_di_bank)
+      })),
+      pengeluaran_bulanan: pb.map((p: any) => ({
+        ...p,
+        nominal_pengeluaran: Number(p.nominal_pengeluaran),
+        sub_total: Number(p.sub_total)
+      })),
+      saldo_surplus_defisit: saldoSurplusDefisit,
+    };
+  }
+
   let found: InstitusiPendidikan | null = null;
 
   const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6];
@@ -559,6 +721,17 @@ export function getProfilInstitusi(id: string, tahun: number = 2026): ProfilInst
 }
 
 export function getAllInstitusi(): InstitusiPendidikan[] {
+  const db = getDb();
+  if (db) {
+    return db.institusi_pendidikan.map((i: any) => ({
+      ...i,
+      nominal_alokasi: Number(i.nominal_alokasi),
+      realisasi_total: Number(i.realisasi_total),
+      selisih: Number(i.selisih),
+      persentase_penyerapan: Number(i.persentase_penyerapan)
+    }));
+  }
+
   const allJenjang: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
   return allJenjang.flatMap(j => getInstitusiByJenjang(j));
 }
@@ -618,6 +791,40 @@ export function getRincianPengeluaranBulanan(
   nomorBulan: number,
   tahun: number = 2026
 ): RincianPengeluaranBulanan | null {
+  const db = getDb();
+  if (db) {
+    const inst = db.institusi_pendidikan.find((i: any) => i.id === institusiId);
+    if (!inst) return null;
+    const pb = db.pengeluaran_bulanan_institusi.find(
+      (p: any) => p.institusi_id === institusiId && p.nomor === nomorBulan
+    );
+    if (!pb) return null;
+    const items = db.rincian_pengeluaran_item.filter(
+      (item: any) => item.institusi_id === institusiId && item.nomor_bulan === nomorBulan
+    );
+
+    const total = Number(pb.nominal_pengeluaran);
+    const subTotal = Math.round(total / 1.11);
+    const pajakNominal = total - subTotal;
+
+    return {
+      institusi_id: inst.id,
+      institusi_nama: inst.nama_institusi,
+      bulan: pb.bulan,
+      nomor_bulan: pb.nomor,
+      items: items.map((item: any) => ({
+        ...item,
+        harga_satuan: Number(item.harga_satuan),
+        qty: Number(item.qty),
+        jumlah: Number(item.jumlah)
+      })).sort((a: any, b: any) => a.nomor - b.nomor),
+      sub_total: subTotal,
+      pajak_persen: PAJAK_PERSEN,
+      pajak_nominal: pajakNominal,
+      total: total,
+    };
+  }
+
   let found: InstitusiPendidikan | null = null;
 
   const targetTahun = tahunAnggaranData.find(t => t.tahun === tahun) || tahunAnggaranData[6];
@@ -732,6 +939,30 @@ export function getJenjangBreakdownByKabkota(
   kabkotaId: string,
   nominalAlokasi: number
 ): JenjangBreakdownProvinsi[] {
+  const db = getDb();
+  if (db) {
+    const schools = db.institusi_pendidikan.filter((i: any) => i.kabupaten_kota_id === kabkotaId);
+    const jenjangs: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
+    const resultBreakdown = jenjangs.map((j, i) => {
+      const jSchools = schools.filter(s => s.jenjang === j);
+      const nominal = jSchools.reduce((sum, s) => sum + Number(s.nominal_alokasi), 0);
+      const realisasi = jSchools.reduce((sum, s) => sum + Number(s.realisasi_total), 0);
+      let label = j === 'UNIVERSITAS' ? 'Universitas (Strata 1)' :
+                  j === 'SMA' ? 'Sekolah Menengah Atas (SMA)' :
+                  j === 'SMP' ? 'Sekolah Menengah Pertama (SMP)' :
+                  j === 'SD' ? 'Sekolah Dasar (SD)' :
+                  'Pendidikan Anak Usia Dini (PAUD)';
+      return {
+        nomor: i + 1,
+        jenjang: label,
+        jumlah_sekolah: jSchools.length,
+        nominal_keseluruhan: nominal,
+        porsi_anggaran: nominalAlokasi > 0 ? (nominal / nominalAlokasi) * 100 : 0
+      };
+    });
+    return resultBreakdown;
+  }
+
   const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
   const provIdx = match ? parseInt(match[1], 10) : 1;
   const kabIdx = match ? parseInt(match[2], 10) : 0;
@@ -782,6 +1013,17 @@ export function getInstitusiByKabkota(
   provinsiNama: string,
   totalNominal: number
 ): InstitusiPendidikan[] {
+  const db = getDb();
+  if (db) {
+    return db.institusi_pendidikan.filter((i: any) => i.kabupaten_kota_id === kabkotaId).map((i: any) => ({
+      ...i,
+      nominal_alokasi: Number(i.nominal_alokasi),
+      realisasi_total: Number(i.realisasi_total),
+      selisih: Number(i.selisih),
+      persentase_penyerapan: Number(i.persentase_penyerapan)
+    }));
+  }
+
   const match = kabkotaId.match(/kab-p-(\d+)-(\d+)/);
   const provIdx = match ? parseInt(match[1], 10) : 1;
   const kabIdx = match ? parseInt(match[2], 10) : 0;
@@ -865,6 +1107,8 @@ export function getInstitusiByKabkota(
         provinsi_nama: provinsiNama,
         status_sekolah,
         nomor_rekening: `100.${200 + schoolCounter}.${300 + schoolCounter * 3}.000`,
+        alamat: `Jl. Raya ${namaKabkota} No. ${schoolCounter + 12}, ${provinsiNama}`,
+        nisn: `889${String(200000 + schoolCounter)}`,
         nominal_alokasi: schoolNominal,
         realisasi_total: realisasi,
         selisih: schoolNominal - realisasi,
@@ -879,11 +1123,35 @@ export function getInstitusiByKabkota(
   return list;
 }
 
-
 export function getJenjangBreakdownByProvinsi(
   provinsiId: string,
   nominalAlokasi: number
 ): JenjangBreakdownProvinsi[] {
+  const db = getDb();
+  if (db) {
+    const kabkotaIds = db.kabupaten_kota.filter((k: any) => k.provinsi_id === provinsiId).map((k: any) => k.id);
+    const schools = db.institusi_pendidikan.filter((i: any) => kabkotaIds.includes(i.kabupaten_kota_id));
+    const jenjangs: Jenjang[] = ['UNIVERSITAS', 'SMA', 'SMP', 'SD', 'PAUD'];
+    const resultBreakdown = jenjangs.map((j, i) => {
+      const jSchools = schools.filter(s => s.jenjang === j);
+      const nominal = jSchools.reduce((sum, s) => sum + Number(s.nominal_alokasi), 0);
+      const realisasi = jSchools.reduce((sum, s) => sum + Number(s.realisasi_total), 0);
+      let label = j === 'UNIVERSITAS' ? 'Universitas (Strata 1)' :
+                  j === 'SMA' ? 'Sekolah Menengah Atas (SMA)' :
+                  j === 'SMP' ? 'Sekolah Menengah Pertama (SMP)' :
+                  j === 'SD' ? 'Sekolah Dasar (SD)' :
+                  'Pendidikan Anak Usia Dini (PAUD)';
+      return {
+        nomor: i + 1,
+        jenjang: label,
+        jumlah_sekolah: jSchools.length,
+        nominal_keseluruhan: nominal,
+        porsi_anggaran: nominalAlokasi > 0 ? (nominal / nominalAlokasi) * 100 : 0
+      };
+    });
+    return resultBreakdown;
+  }
+
   const provIdx = parseInt(provinsiId.replace('p-', ''), 10) - 1;
   const seed = isNaN(provIdx) ? 1 : provIdx + 1;
 
@@ -908,3 +1176,112 @@ export function getJenjangBreakdownByProvinsi(
     };
   });
 }
+
+export function updateMockAnomalies(newData: AuditAnomaly[]) {
+  mockAnomalies = newData;
+}
+
+export let mockAnomalies: AuditAnomaly[] = [
+  {
+    id: 'anom-1',
+    institusi_id: 'inst-universitas-0',
+    nama_institusi: 'Universitas Indonesia',
+    jenjang: 'UNIVERSITAS',
+    bulan: 'Maret',
+    nomor_bulan: 3,
+    tipe_anomali: 'Indikasi Mark-Up Pengadaan Gedung',
+    keterangan: 'Ditemukan ketidaksesuaian Rencana Anggaran Biaya (RAB) pengadaan gedung mahasiswa baru sebesar 35% dari nilai pasar wajar.',
+    nominal_selisih: 45_000_000_000,
+    tingkat_keparahan: 'HIGH',
+    status: 'TEMUAN',
+    tanggal_ditemukan: '2026-03-15',
+    audit_what: 'Penggelembungan dana (Mark-up) Rencana Anggaran Biaya (RAB) sebesar 35% pada proyek pembangunan gedung mahasiswa baru.',
+    audit_why: 'Selisih harga satuan besi struktur dilaporkan Rp 150.000/kg (harga wajar pasar Jawa Barat adalah Rp 95.000/kg) dan beton ready mix K-350 dilaporkan Rp 1.800.000/m³ (harga wajar Rp 1.100.000/m³).',
+    audit_where: 'Universitas Indonesia, Gedung Hub Mahasiswa Lantai 1-3, Depok, Jawa Barat.',
+    audit_when: 'Periode Tahun Anggaran 2026, dilaporkan/ditemukan pada 15 Maret 2026.',
+    audit_who: 'Pejabat Pembuat Komitmen (PPK) UI atas nama Dr. Ir. Hermawan, M.T., dan kontraktor pelaksana PT Pembangunan Nusantara Jaya.',
+    audit_how: 'Merevisi seluruh Rencana Anggaran Biaya (RAB) konstruksi agar diselaraskan dengan standar e-Katalog LKPP Jawa Barat, memotong nominal pembayaran berlebih ke kontraktor pelaksana, serta melakukan audit fisik lapangan untuk menilai realisasi volume beton terpasang.',
+  },
+  {
+    id: 'anom-2',
+    institusi_id: 'inst-sma-0',
+    nama_institusi: 'SMAN 1 Jakarta',
+    jenjang: 'SMA',
+    bulan: 'Januari',
+    nomor_bulan: 1,
+    tipe_anomali: 'Duplikasi Transaksi Belanja Buku',
+    keterangan: 'Terdapat dua kuitansi dengan nomor seri dan nominal Rp 120.000.000 yang sama untuk pengadaan buku pelajaran semester ganjil.',
+    nominal_selisih: 120_000_000,
+    tingkat_keparahan: 'MEDIUM',
+    status: 'INVESTIGASI',
+    tanggal_ditemukan: '2026-01-20',
+    audit_what: 'Pencatatan pengeluaran ganda (Duplicate billing) untuk kuitansi belanja buku pelajaran Kurikulum Merdeka.',
+    audit_why: 'Ditemukan dua entri kuitansi dengan nomor seri yang sama (INV-2026-089A) dan nominal yang sama (Rp 120.000.000) yang diajukan pada dua tanggal berbeda di bulan Januari 2026.',
+    audit_where: 'SMAN 1 Jakarta, Rekening BOS Reguler Sekolah.',
+    audit_when: 'Periode Transaksi 12 & 24 Januari 2026, ditemukan pada 20 Januari 2026.',
+    audit_who: 'Bendahara BOS SMAN 1 Jakarta (Ibu Retno Lestari) dan penyalur CV Pustaka Raya.',
+    audit_how: 'Menarik kembali dana pembayaran ganda dari CV Pustaka Raya, menghapus entri kuitansi duplikat di buku kas utama, serta memberikan teguran administratif kepada bendahara BOS.',
+  },
+  {
+    id: 'anom-3',
+    institusi_id: 'inst-smp-2',
+    nama_institusi: 'SMPN 1 Surabaya',
+    jenjang: 'SMP',
+    bulan: 'Februari',
+    nomor_bulan: 2,
+    tipe_anomali: 'Kurang Bayar PPN 11%',
+    keterangan: 'Perhitungan pajak PPN yang disetor sebesar Rp 2.500.000, sedangkan kewajiban real berdasarkan subtotal transaksi adalah Rp 7.000.000.',
+    nominal_selisih: 4_500_000,
+    tingkat_keparahan: 'LOW',
+    status: 'TEMUAN',
+    tanggal_ditemukan: '2026-02-18',
+    audit_what: 'Kurang bayar setoran pajak PPN 11% untuk pengadaan komputer dan ATK sekolah.',
+    audit_why: 'Subtotal transaksi belanja riil adalah Rp 63.636.363, di mana kewajiban PPN 11% adalah Rp 7.000.000. Namun, nominal pajak yang disetorkan ke kas negara hanya dilaporkan Rp 2.500.000.',
+    audit_where: 'SMPN 1 Surabaya, Jawa Timur.',
+    audit_when: 'Periode Transaksi Februari 2026, ditemukan pada 18 Februari 2026.',
+    audit_who: 'Kepala Sekolah SMPN 1 Surabaya (Bapak Drs. Bambang Utomo) dan supplier CV Computerindo Surabaya.',
+    audit_how: 'Melakukan penyetoran kekurangan pajak PPN sebesar Rp 4.500.000 menggunakan SSP (Surat Setoran Pajak) ke Bank Persepsi, serta melakukan input ulang kode billing perpajakan.',
+  },
+  {
+    id: 'anom-4',
+    institusi_id: 'inst-universitas-1',
+    nama_institusi: 'Institut Teknologi Bandung',
+    jenjang: 'UNIVERSITAS',
+    bulan: 'April',
+    nomor_bulan: 4,
+    tipe_anomali: 'Sisa Saldo Tidak Sinkron',
+    keterangan: 'Realisasi dana dilaporkan ditarik dari bank sebesar Rp 12 Milyar namun laporan pertanggungjawaban (SPJ) bulanan belum di-upload.',
+    nominal_selisih: 12_000_000_000,
+    tingkat_keparahan: 'HIGH',
+    status: 'TEMUAN',
+    tanggal_ditemukan: '2026-04-10',
+    audit_what: 'Realisasi penarikan dana kas tunai tanpa bukti Surat Pertanggungjawaban (SPJ) pendukung sebesar Rp 12 Milyar.',
+    audit_why: 'Ditemukan penarikan tunai besar-besaran dari rekening bank ITB di bulan April 2026. Data mutasi bank menunjukkan debet Rp 12 Milyar, namun tidak ada kuitansi pembelian yang diunggah.',
+    audit_where: 'Institut Teknologi Bandung (ITB), Kampus Jatinangor.',
+    audit_when: 'Penarikan tunai 05 April 2026, ditemukan pada 10 April 2026.',
+    audit_who: 'Biro Keuangan ITB (Bapak Ahmad Faisal) dan Bank Mandiri KCP ITB.',
+    audit_how: 'Meminta Biro Keuangan mengunggah seluruh kuitansi pembelian pendukung penarikan kas tunai tersebut paling lambat 14 hari kerja, atau mengembalikan sisa saldo tunai ke rekening bank.',
+  },
+  {
+    id: 'anom-5',
+    institusi_id: 'inst-sd-0',
+    nama_institusi: 'SDN 01 Menteng',
+    jenjang: 'SD',
+    bulan: 'Maret',
+    nomor_bulan: 3,
+    tipe_anomali: 'Indikasi Pengeluaran Fiktif ATK',
+    keterangan: 'Pembelian alat tulis kantor dalam jumlah berlebihan yang melebihi kapasitas operasional normal sekolah dasar.',
+    nominal_selisih: 35_000_000,
+    tingkat_keparahan: 'MEDIUM',
+    status: 'SELESAI',
+    tanggal_ditemukan: '2026-03-22',
+    audit_what: 'Indikasi pengadaan fiktif untuk pembelian alat tulis kantor (ATK) dalam jumlah tidak wajar.',
+    audit_why: 'Volume pembelian ATK yang dilaporkan (misal: 500 rim kertas A4 untuk 1 bulan operasional sekolah) dinilai melebihi kebutuhan riil sekolah dan tidak didukung bukti fisik di gudang.',
+    audit_where: 'SDN 01 Menteng, DKI Jakarta.',
+    audit_when: 'Periode Transaksi Maret 2026, ditemukan pada 22 Maret 2026.',
+    audit_who: 'Bendahara Sekolah (Ibu Rina Amalia) dan Toko ATK Makmur Jaya.',
+    audit_how: 'Melakukan verifikasi fisik sediaan barang (stock opname) di gudang sekolah, mencocokkan nota pembelian dengan surat jalan pengiriman barang, dan memberikan sanksi administratif.',
+  }
+];
+
+

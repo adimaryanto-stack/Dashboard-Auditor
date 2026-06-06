@@ -210,7 +210,7 @@ export default function UsersPage() {
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  placeholder="john@kemdikbud.go.id"
+                  placeholder="john@auditor.go.id"
                   className="search-input w-full pl-3"
                 />
               </div>
