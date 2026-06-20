@@ -11,22 +11,38 @@ import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiProvinsi, AlokasiKabupatenKota, JenjangBreakdownProvinsi } from '@/types';
 import { ArrowLeft, Banknote, Download, Sparkles } from 'lucide-react';
 
+import { supabase } from '@/lib/supabase';
+import EditableCell from '@/components/spreadsheet/EditableCell';
+
 export default function ProvinsiDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string; // provinsi_id e.g. p-1
-  const { activeTahun } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
 
   // Find target province data scaled dynamically
   const provData = useMemo(() => {
+    const baseData = alokasiProvinsiData.find(p => p.provinsi_id === id);
+    if (!baseData) return null;
+
+    if (isSupabaseMode && dbData) {
+      const dbAlokasiProv = dbData.alokasi_provinsi.find((p: any) => p.provinsi_id === id);
+      if (dbAlokasiProv) {
+        return {
+          ...baseData,
+          nominal_alokasi: Number(dbAlokasiProv.nominal_alokasi),
+          realisasi_total: Number(dbAlokasiProv.realisasi_total),
+          selisih: Number(dbAlokasiProv.selisih),
+          persentase_penyerapan: Number(dbAlokasiProv.persentase_penyerapan)
+        };
+      }
+    }
+
     const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
     const baseTahun = tahunAnggaranData[6];
     const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
     const seed = (activeTahun % 7) || 1;
     const shift = 0.95 + (seed * 0.012);
-
-    const baseData = alokasiProvinsiData.find(p => p.provinsi_id === id);
-    if (!baseData) return null;
 
     const nominal = Math.round(baseData.nominal_alokasi * scale);
     const realisasi = Math.min(nominal, Math.round(baseData.realisasi_total * scale * shift));
@@ -38,11 +54,24 @@ export default function ProvinsiDetailPage() {
       selisih: nominal - realisasi,
       persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
     };
-  }, [id, activeTahun]);
+  }, [id, activeTahun, isSupabaseMode, dbData]);
 
   // Scaled Kabkota list
   const scaledKabkotaList = useMemo(() => {
     const list = getKabkotaByProvinsi(id);
+
+    if (isSupabaseMode && dbData) {
+      return list.map(item => ({
+        ...item,
+        nominal_alokasi: Number(item.nominal_alokasi),
+        realisasi_total: Number(item.realisasi_total),
+        selisih: Number(item.nominal_alokasi) - Number(item.realisasi_total),
+        persentase_penyerapan: Number(item.nominal_alokasi) > 0 
+          ? Math.round((Number(item.realisasi_total) / Number(item.nominal_alokasi)) * 1000) / 10 
+          : 0
+      }));
+    }
+
     const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
     const baseTahun = tahunAnggaranData[6];
     const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
@@ -60,7 +89,7 @@ export default function ProvinsiDetailPage() {
         persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
       };
     });
-  }, [id, activeTahun]);
+  }, [id, activeTahun, isSupabaseMode, dbData]);
 
   // States
   const [kabkotaList, setKabkotaList] = useState<AlokasiKabupatenKota[]>(scaledKabkotaList);
@@ -98,11 +127,97 @@ export default function ProvinsiDetailPage() {
     return getJenjangBreakdownByProvinsi(id, totals.nominal);
   }, [id, totals.nominal]);
 
+  const handleCellSave = async (rowId: string, field: 'nominal_alokasi' | 'realisasi_total', newValue: number) => {
+    setKabkotaList(prev => prev.map(item => {
+      if (item.id === rowId) {
+        const nominal = field === 'nominal_alokasi' ? newValue : item.nominal_alokasi;
+        const realisasi = field === 'realisasi_total' ? newValue : item.realisasi_total;
+        return {
+          ...item,
+          [field]: newValue,
+          selisih: nominal - realisasi,
+          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
+        };
+      }
+      return item;
+    }));
+
+    if (isSupabaseMode && dbData) {
+      const updatedAlokasiKabkota = dbData.alokasi_kabupaten_kota.map((akk: any) => {
+        if (akk.id === rowId) {
+          const nominal = field === 'nominal_alokasi' ? newValue : Number(akk.nominal_alokasi);
+          const realisasi = field === 'realisasi_total' ? newValue : Number(akk.realisasi_total);
+          return {
+            ...akk,
+            [field]: newValue,
+            selisih: nominal - realisasi,
+            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0
+          };
+        }
+        return akk;
+      });
+
+      const provinceKabkotaList = updatedAlokasiKabkota.filter((akk: any) => akk.alokasi_provinsi_id === provData?.id);
+      const newProvNominal = provinceKabkotaList.reduce((s, k) => s + Number(k.nominal_alokasi), 0);
+      const newProvRealisasi = provinceKabkotaList.reduce((s, k) => s + Number(k.realisasi_total), 0);
+
+      const updatedAlokasiProv = dbData.alokasi_provinsi.map((ap: any) => {
+        if (ap.id === provData?.id) {
+          return {
+            ...ap,
+            nominal_alokasi: newProvNominal,
+            realisasi_total: newProvRealisasi,
+            selisih: newProvNominal - newProvRealisasi,
+            persentase_penyerapan: newProvNominal > 0 ? (newProvRealisasi / newProvNominal) * 100 : 0
+          };
+        }
+        return ap;
+      });
+
+      setDbData({
+        ...dbData,
+        alokasi_kabupaten_kota: updatedAlokasiKabkota,
+        alokasi_provinsi: updatedAlokasiProv
+      });
+
+      const targetInst = updatedAlokasiKabkota.find(i => i.id === rowId);
+      if (targetInst) {
+        const updatePayload: any = {
+          [field]: newValue,
+          selisih: targetInst.selisih,
+          persentase_penyerapan: targetInst.persentase_penyerapan,
+          updated_at: new Date().toISOString()
+        };
+        await supabase
+          .from('alokasi_kabupaten_kota')
+          .update(updatePayload)
+          .eq('id', rowId);
+      }
+
+      const targetProv = updatedAlokasiProv.find(ap => ap.id === provData?.id);
+      if (targetProv) {
+        await supabase
+          .from('alokasi_provinsi')
+          .update({
+            nominal_alokasi: targetProv.nominal_alokasi,
+            realisasi_total: targetProv.realisasi_total,
+            selisih: targetProv.selisih,
+            persentase_penyerapan: targetProv.persentase_penyerapan,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', provData?.id);
+      }
+    }
+  };
+
   const renderEditableCell = (row: AlokasiKabupatenKota, field: 'nominal_alokasi' | 'realisasi_total') => {
     const value = row[field];
     return (
-      <td className="sheet-cell text-right font-mono">
-        {fmtRupiah(value)}
+      <td className="sheet-cell p-0">
+        <EditableCell
+          value={value}
+          onSave={(newValue) => handleCellSave(row.id, field, newValue)}
+        />
       </td>
     );
   };

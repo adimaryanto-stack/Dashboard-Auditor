@@ -10,13 +10,29 @@ import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { AlokasiKabupatenKota } from '@/types';
 import { Search, Download } from 'lucide-react';
 
+import { supabase } from '@/lib/supabase';
+import EditableCell from '@/components/spreadsheet/EditableCell';
+
 export default function KabupatenKotaPage() {
-  const { activeTahun } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
   const [selectedProvinsi, setSelectedProvinsi] = useState(alokasiProvinsiData[11].provinsi_id); // Jawa Barat
   const [search, setSearch] = useState('');
 
   const rawData = useMemo(() => {
     const list = getKabkotaByProvinsi(selectedProvinsi);
+
+    if (isSupabaseMode && dbData) {
+      return list.map(item => ({
+        ...item,
+        nominal_alokasi: Number(item.nominal_alokasi),
+        realisasi_total: Number(item.realisasi_total),
+        selisih: Number(item.nominal_alokasi) - Number(item.realisasi_total),
+        persentase_penyerapan: Number(item.nominal_alokasi) > 0 
+          ? Math.round((Number(item.realisasi_total) / Number(item.nominal_alokasi)) * 1000) / 10 
+          : 0
+      }));
+    }
+
     const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
     const baseTahun = tahunAnggaranData[6];
     const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
@@ -34,7 +50,7 @@ export default function KabupatenKotaPage() {
         persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
       };
     });
-  }, [selectedProvinsi, activeTahun]);
+  }, [selectedProvinsi, activeTahun, isSupabaseMode, dbData]);
 
   const [localData, setLocalData] = useState<AlokasiKabupatenKota[]>(rawData);
 
@@ -53,11 +69,73 @@ export default function KabupatenKotaPage() {
     return { nominal: nom, realisasi: real, selisih: nom - real, pct: nom > 0 ? (real / nom) * 100 : 0 };
   }, [filtered]);
 
+  const handleCellSave = async (rowId: string, field: 'nominal' | 'realisasi', newValue: number) => {
+    setLocalData(prev => prev.map(item => {
+      if (item.id === rowId) {
+        const nominal = field === 'nominal' ? newValue : item.nominal_alokasi;
+        const realisasi = field === 'realisasi' ? newValue : item.realisasi_total;
+        return {
+          ...item,
+          nominal_alokasi: nominal,
+          realisasi_total: realisasi,
+          selisih: nominal - realisasi,
+          persentase_penyerapan: nominal > 0 ? Math.round((realisasi / nominal) * 1000) / 10 : 0
+        };
+      }
+      return item;
+    }));
+
+    if (isSupabaseMode && dbData) {
+      const updatedAlokasiKabkota = dbData.alokasi_kabupaten_kota.map((akk: any) => {
+        if (akk.id === rowId) {
+          const nominal = field === 'nominal' ? newValue : Number(akk.nominal_alokasi);
+          const realisasi = field === 'realisasi' ? newValue : Number(akk.realisasi_total);
+          return {
+            ...akk,
+            nominal_alokasi: nominal,
+            realisasi_total: realisasi,
+            selisih: nominal - realisasi,
+            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0
+          };
+        }
+        return akk;
+      });
+
+      setDbData({ ...dbData, alokasi_kabupaten_kota: updatedAlokasiKabkota });
+
+      const updatePayload: any = {};
+      if (field === 'nominal') {
+        updatePayload.nominal_alokasi = newValue;
+      } else {
+        updatePayload.realisasi_total = newValue;
+      }
+
+      const targetInst = updatedAlokasiKabkota.find(i => i.id === rowId);
+      if (targetInst) {
+        updatePayload.selisih = targetInst.selisih;
+        updatePayload.persentase_penyerapan = targetInst.persentase_penyerapan;
+        updatePayload.updated_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('alokasi_kabupaten_kota')
+        .update(updatePayload)
+        .eq('id', rowId);
+
+      if (error) {
+        console.error('Failed to update alokasi_kabupaten_kota in Supabase:', error.message);
+      }
+    }
+  };
+
   const renderEditableCell = (row: AlokasiKabupatenKota, field: 'nominal' | 'realisasi') => {
     const value = field === 'nominal' ? row.nominal_alokasi : row.realisasi_total;
     return (
-      <td className="sheet-cell text-right">
-        {fmtRupiah(value)}
+      <td className="sheet-cell p-0">
+        <EditableCell
+          value={value}
+          onSave={(newValue) => handleCellSave(row.id, field, newValue)}
+        />
       </td>
     );
   };

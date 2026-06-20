@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { usersData } from '@/lib/data';
 import { User, UserRole } from '@/types';
 import { Search, Plus, Edit3, Trash2, Shield, ShieldCheck, Eye, UserCheck, UserX } from 'lucide-react';
+import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 const roleConfig: Record<UserRole, { label: string; color: string }> = {
   SUPER_ADMIN: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700 border-purple-300' },
@@ -16,7 +18,17 @@ const roleConfig: Record<UserRole, { label: string; color: string }> = {
 };
 
 export default function UsersPage() {
+  const { isSupabaseMode, dbData, setDbData } = useAppStore();
   const [data, setData] = useState<User[]>(usersData);
+
+  useEffect(() => {
+    if (isSupabaseMode && dbData?.users) {
+      setData(dbData.users);
+    } else {
+      setData(usersData);
+    }
+  }, [isSupabaseMode, dbData?.users]);
+
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -52,35 +64,87 @@ export default function UsersPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formUsername || !formEmail) return;
 
+    let updatedUsers = [...data];
+
     if (editUser) {
-      setData(prev => prev.map(u => u.id === editUser.id ? { ...u, username: formUsername, email: formEmail, role: formRole } : u));
+      const updatedUser = { ...editUser, username: formUsername, email: formEmail, role: formRole };
+      updatedUsers = data.map(u => u.id === editUser.id ? updatedUser : u);
+      setData(updatedUsers);
+
+      if (isSupabaseMode && dbData) {
+        const dbUsers = dbData.users.map((u: any) => u.id === editUser.id ? updatedUser : u);
+        setDbData({ ...dbData, users: dbUsers });
+        
+        await supabase
+          .from('users')
+          .update({ username: formUsername, email: formEmail, role: formRole })
+          .eq('id', editUser.id);
+      }
     } else {
-      setData(prev => [...prev, {
-        id: String(Date.now()),
+      const newUser: User = {
+        id: `usr-${Date.now()}`,
         username: formUsername,
         email: formEmail,
         role: formRole,
         is_active: true,
         created_at: new Date().toISOString(),
-      }]);
+      };
+      updatedUsers = [...data, newUser];
+      setData(updatedUsers);
+
+      if (isSupabaseMode && dbData) {
+        const dbUsers = [...dbData.users, newUser];
+        setDbData({ ...dbData, users: dbUsers });
+        
+        await supabase
+          .from('users')
+          .insert([newUser]);
+      }
     }
     setShowModal(false);
   };
 
-  const handleToggleActive = (id: string) => {
+  const handleToggleActive = async (id: string) => {
     const user = data.find(u => u.id === id);
     if (user?.role === 'SUPER_ADMIN') return;
-    setData(prev => prev.map(u => u.id === id ? { ...u, is_active: !u.is_active } : u));
+    
+    const updatedUsers = data.map(u => u.id === id ? { ...u, is_active: !u.is_active } : u);
+    setData(updatedUsers);
+
+    if (isSupabaseMode && dbData) {
+      const dbUsers = dbData.users.map((u: any) => u.id === id ? { ...u, is_active: !u.is_active } : u);
+      setDbData({ ...dbData, users: dbUsers });
+      
+      const targetUser = dbUsers.find((u: any) => u.id === id);
+      if (targetUser) {
+        await supabase
+          .from('users')
+          .update({ is_active: targetUser.is_active })
+          .eq('id', id);
+      }
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const user = data.find(u => u.id === id);
     if (user?.role === 'SUPER_ADMIN') { alert('Super Admin tidak bisa dihapus!'); return; }
     if (!confirm('Hapus user ini?')) return;
-    setData(prev => prev.map(u => u.id === id ? { ...u, is_active: false } : u));
+    
+    const updatedUsers = data.filter(u => u.id !== id);
+    setData(updatedUsers);
+
+    if (isSupabaseMode && dbData) {
+      const dbUsers = dbData.users.filter((u: any) => u.id !== id);
+      setDbData({ ...dbData, users: dbUsers });
+      
+      await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+    }
   };
 
   const getInitials = (name: string) => {

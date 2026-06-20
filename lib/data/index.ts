@@ -16,6 +16,7 @@ import {
   RincianPengeluaranItem,
   RincianPengeluaranBulanan,
   JenjangBreakdownProvinsi,
+  AuditAnomaly,
 } from '@/types';
 import { useAppStore } from '@/lib/store';
 
@@ -479,7 +480,7 @@ export function getDashboardSummary(tahun: number = 2026): DashboardSummary {
       total_nominal: totalNominal,
       total_realisasi: totalRealisasi,
       persentase_penyerapan: totalNominal > 0 ? (totalRealisasi / totalNominal) * 100 : 0,
-      per_jenjang,
+      per_jenjang: perJenjang,
       tren_tahunan: trenTahunan.sort((a, b) => a.tahun - b.tahun)
     };
   }

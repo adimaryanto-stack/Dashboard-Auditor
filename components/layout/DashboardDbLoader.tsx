@@ -63,63 +63,82 @@ export default function DashboardDbLoader({
           throw testError;
         }
 
+        // Define paginated fetch function
+        async function fetchAllRows(tableName: string) {
+          let allData: any[] = [];
+          let from = 0;
+          const limit = 1000;
+          let hasMore = true;
+
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from(tableName)
+              .select('*')
+              .range(from, from + limit - 1);
+
+            if (error) {
+              throw error;
+            }
+
+            if (data) {
+              allData = [...allData, ...data];
+              if (data.length < limit) {
+                hasMore = false;
+              } else {
+                from += limit;
+              }
+            } else {
+              hasMore = false;
+            }
+          }
+
+          return allData;
+        }
+
         // Connection successful and tables exist! Start downloading everything
         setLoaderText('Mengunduh data anggaran dan wilayah...');
         
-        // Fetch all tables in parallel
+        // Fetch all tables in parallel with full pagination
         const [
-          resTahun,
-          resProv,
-          resAlokasiProv,
-          resKab,
-          resAlokasiKab,
-          resInst,
-          resSD,
-          resPB,
-          resItems,
-          resUsers,
-          resAnoms
+          dataTahun,
+          dataProv,
+          dataAlokasiProv,
+          dataKab,
+          dataAlokasiKab,
+          dataInst,
+          dataSD,
+          dataPB,
+          dataItems,
+          dataUsers,
+          dataAnoms
         ] = await Promise.all([
-          supabase.from('tahun_anggaran').select('*'),
-          supabase.from('provinsi').select('*'),
-          supabase.from('alokasi_provinsi').select('*'),
-          supabase.from('kabupaten_kota').select('*'),
-          supabase.from('alokasi_kabupaten_kota').select('*'),
-          supabase.from('institusi_pendidikan').select('*'),
-          supabase.from('sumber_dana_institusi').select('*'),
-          supabase.from('pengeluaran_bulanan_institusi').select('*'),
-          supabase.from('rincian_pengeluaran_item').select('*'),
-          supabase.from('users').select('*'),
-          supabase.from('audit_anomaly').select('*')
+          fetchAllRows('tahun_anggaran'),
+          fetchAllRows('provinsi'),
+          fetchAllRows('alokasi_provinsi'),
+          fetchAllRows('kabupaten_kota'),
+          fetchAllRows('alokasi_kabupaten_kota'),
+          fetchAllRows('institusi_pendidikan'),
+          fetchAllRows('sumber_dana_institusi'),
+          fetchAllRows('pengeluaran_bulanan_institusi'),
+          fetchAllRows('rincian_pengeluaran_item'),
+          fetchAllRows('users'),
+          fetchAllRows('audit_anomaly')
         ]);
-
-        // Check for any fetch errors
-        if (resTahun.error) throw resTahun.error;
-        if (resProv.error) throw resProv.error;
-        if (resAlokasiProv.error) throw resAlokasiProv.error;
-        if (resKab.error) throw resKab.error;
-        if (resAlokasiKab.error) throw resAlokasiKab.error;
-        if (resInst.error) throw resInst.error;
-        if (resSD.error) throw resSD.error;
-        if (resPB.error) throw resPB.error;
-        if (resItems.error) throw resItems.error;
-        if (resUsers.error) throw resUsers.error;
-        if (resAnoms.error) throw resAnoms.error;
 
         setLoaderText('Sinkronisasi data sistem...');
 
         const loadedDb = {
-          tahun_anggaran: resTahun.data || [],
-          provinsi: resProv.data || [],
-          alokasi_provinsi: resAlokasiProv.data || [],
-          kabupaten_kota: resKab.data || [],
-          alokasi_kabupaten_kota: resAlokasiKab.data || [],
-          institusi_pendidikan: resInst.data || [],
-          sumber_dana_institusi: resSD.data || [],
-          pengeluaran_bulanan_institusi: resPB.data || [],
-          rincian_pengeluaran_item: resItems.data || [],
-          users: resUsers.data || [],
-          audit_anomaly: resAnoms.data || []
+          tahun_anggaran: dataTahun,
+          provinsi: dataProv,
+          alokasi_provinsi: dataAlokasiProv,
+          kabupaten_kota: dataKab,
+          alokasi_kabupaten_kota: dataAlokasiKab,
+          institusi_pendidikan: dataInst,
+          sumber_dana_institusi: dataSD,
+          pengeluaran_bulanan_institusi: dataPB,
+          rincian_pengeluaran_item: dataItems,
+          users: dataUsers,
+          audit_anomaly: dataAnoms
         };
 
         // Cache in Zustand store

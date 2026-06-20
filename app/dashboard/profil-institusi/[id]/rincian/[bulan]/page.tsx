@@ -10,16 +10,19 @@ import { fmtRupiah } from '@/lib/utils/formatters';
 import { RincianPengeluaranItem } from '@/types';
 import { ArrowLeft, Download } from 'lucide-react';
 
+import { supabase } from '@/lib/supabase';
+import EditableCell from '@/components/spreadsheet/EditableCell';
+
 export default function RincianPengeluaranPage() {
   const params = useParams();
   const router = useRouter();
   const institusiId = params.id as string;
   const nomorBulan = parseInt(params.bulan as string, 10);
-  const { activeTahun } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
 
   const rincianData = useMemo(
     () => getRincianPengeluaranBulanan(institusiId, nomorBulan, activeTahun),
-    [institusiId, nomorBulan, activeTahun]
+    [institusiId, nomorBulan, activeTahun, isSupabaseMode, dbData]
   );
 
   // Editable state
@@ -52,11 +55,120 @@ export default function RincianPengeluaranPage() {
   const pajakNominal = Math.round(subTotal * pajakPersen / 100);
   const total = subTotal + pajakNominal;
 
+  const handleCellSave = async (rowId: string, field: 'harga_satuan' | 'qty', newValue: number) => {
+    const updatedItems = items.map(item => {
+      if (item.id === rowId) {
+        const harga = field === 'harga_satuan' ? newValue : item.harga_satuan;
+        const qty = field === 'qty' ? newValue : item.qty;
+        return {
+          ...item,
+          [field]: newValue,
+          jumlah: harga * qty
+        };
+      }
+      return item;
+    });
+
+    setItems(updatedItems);
+
+    if (isSupabaseMode && dbData) {
+      const updatedDbItems = dbData.rincian_pengeluaran_item.map((item: any) => {
+        if (item.id === rowId) {
+          const harga = field === 'harga_satuan' ? newValue : Number(item.harga_satuan);
+          const qty = field === 'qty' ? newValue : Number(item.qty);
+          return {
+            ...item,
+            [field]: newValue,
+            jumlah: harga * qty
+          };
+        }
+        return item;
+      });
+
+      const schoolMonthItems = updatedDbItems.filter(
+        (item: any) => item.institusi_id === institusiId && Number(item.nomor_bulan) === nomorBulan
+      );
+      const newMonthlySubtotal = schoolMonthItems.reduce((s, i) => s + Number(i.jumlah), 0);
+
+      const updatedDbPB = dbData.pengeluaran_bulanan_institusi.map((pb: any) => {
+        if (pb.institusi_id === institusiId && Number(pb.nomor) === nomorBulan) {
+          return {
+            ...pb,
+            nominal_pengeluaran: newMonthlySubtotal,
+            sub_total: newMonthlySubtotal
+          };
+        }
+        return pb;
+      });
+
+      const schoolPBList = updatedDbPB.filter((pb: any) => pb.institusi_id === institusiId);
+      const newSchoolRealisasi = schoolPBList.reduce((s, pb) => s + Number(pb.sub_total), 0);
+
+      const updatedDbInst = dbData.institusi_pendidikan.map((inst: any) => {
+        if (inst.id === institusiId) {
+          const nominal = Number(inst.nominal_alokasi);
+          const real = newSchoolRealisasi;
+          return {
+            ...inst,
+            realisasi_total: real,
+            selisih: nominal - real,
+            persentase_penyerapan: nominal > 0 ? (real / nominal) * 100 : 0
+          };
+        }
+        return inst;
+      });
+
+      setDbData({
+        ...dbData,
+        rincian_pengeluaran_item: updatedDbItems,
+        pengeluaran_bulanan_institusi: updatedDbPB,
+        institusi_pendidikan: updatedDbInst
+      });
+
+      const targetItem = updatedDbItems.find(i => i.id === rowId);
+      if (targetItem) {
+        await supabase
+          .from('rincian_pengeluaran_item')
+          .update({
+            [field]: newValue,
+            jumlah: targetItem.jumlah
+          })
+          .eq('id', rowId);
+      }
+
+      await supabase
+        .from('pengeluaran_bulanan_institusi')
+        .update({
+          nominal_pengeluaran: newMonthlySubtotal,
+          sub_total: newMonthlySubtotal
+        })
+        .eq('institusi_id', institusiId)
+        .eq('nomor', nomorBulan);
+
+      const targetSchool = updatedDbInst.find(i => i.id === institusiId);
+      if (targetSchool) {
+        await supabase
+          .from('institusi_pendidikan')
+          .update({
+            realisasi_total: targetSchool.realisasi_total,
+            selisih: targetSchool.selisih,
+            persentase_penyerapan: targetSchool.persentase_penyerapan,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', institusiId);
+      }
+    }
+  };
+
   const renderEditableCell = (row: RincianPengeluaranItem, field: 'harga_satuan' | 'qty') => {
     const value = row[field];
     return (
-      <td className="sheet-cell text-right">
-        {field === 'qty' ? value.toLocaleString('id-ID') : fmtRupiah(value)}
+      <td className="sheet-cell p-0">
+        <EditableCell
+          value={value}
+          onSave={(newValue) => handleCellSave(row.id, field, newValue)}
+          formatter={field === 'qty' ? (val) => val.toLocaleString('id-ID') : fmtRupiah}
+        />
       </td>
     );
   };

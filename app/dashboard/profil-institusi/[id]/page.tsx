@@ -10,13 +10,16 @@ import { fmtRupiah } from '@/lib/utils/formatters';
 import { SumberDanaInstitusi, PengeluaranBulananInstitusi } from '@/types';
 import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
 
+import { supabase } from '@/lib/supabase';
+import EditableCell from '@/components/spreadsheet/EditableCell';
+
 export default function ProfilInstitusiDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { activeTahun } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
 
-  const profilData = useMemo(() => getProfilInstitusi(id, activeTahun), [id, activeTahun]);
+  const profilData = useMemo(() => getProfilInstitusi(id, activeTahun), [id, activeTahun, isSupabaseMode, dbData]);
 
   // Editable state
   const [sumberDana, setSumberDana] = useState<SumberDanaInstitusi[]>([]);
@@ -27,7 +30,7 @@ export default function ProfilInstitusiDetailPage() {
     if (profilData) {
       setSumberDana(profilData.sumber_dana);
       setPengeluaran(profilData.pengeluaran_bulanan);
-      setNomorRekening(profilData.institusi.nomor_rekening);
+      setNomorRekening(profilData.institusi.nomor_rekening || '');
     }
   }, [profilData]);
 
@@ -55,12 +58,109 @@ export default function ProfilInstitusiDetailPage() {
   const saldoSurplusDefisit = totalNominalSumber - totalRealisasiSumber;
   const totalPengeluaran = pengeluaran.reduce((s, p) => s + p.sub_total, 0);
 
+  const handleSaveSD = async (rowId: string, field: 'nominal' | 'realisasi', newValue: number) => {
+    setSumberDana(prev => prev.map(item => {
+      if (item.id === rowId) {
+        const nominal = field === 'nominal' ? newValue : item.nominal;
+        const realisasi = field === 'realisasi' ? newValue : item.realisasi;
+        return {
+          ...item,
+          [field]: newValue,
+          saldo_di_bank: nominal - realisasi
+        };
+      }
+      return item;
+    }));
+
+    if (isSupabaseMode && dbData) {
+      const updatedSD = dbData.sumber_dana_institusi.map((sd: any) => {
+        if (sd.id === rowId) {
+          const nominal = field === 'nominal' ? newValue : Number(sd.nominal);
+          const realisasi = field === 'realisasi' ? newValue : Number(sd.realisasi);
+          return {
+            ...sd,
+            [field]: newValue,
+            saldo_di_bank: nominal - realisasi
+          };
+        }
+        return sd;
+      });
+
+      setDbData({ ...dbData, sumber_dana_institusi: updatedSD });
+
+      const targetSD = updatedSD.find(s => s.id === rowId);
+      const updatePayload: any = {
+        [field]: newValue,
+        saldo_di_bank: targetSD ? targetSD.saldo_di_bank : 0
+      };
+
+      const { error } = await supabase
+        .from('sumber_dana_institusi')
+        .update(updatePayload)
+        .eq('id', rowId);
+
+      if (error) {
+        console.error('Failed to update sumber_dana_institusi in Supabase:', error.message);
+      }
+    }
+  };
+
+  const handleSavePB = async (rowId: string, field: 'nominal_pengeluaran' | 'qty', newValue: number) => {
+    setPengeluaran(prev => prev.map(item => {
+      if (item.id === rowId) {
+        const nominal = field === 'nominal_pengeluaran' ? newValue : item.nominal_pengeluaran;
+        const qty = field === 'qty' ? newValue : item.qty;
+        return {
+          ...item,
+          [field]: newValue,
+          sub_total: nominal * qty
+        };
+      }
+      return item;
+    }));
+
+    if (isSupabaseMode && dbData) {
+      const updatedPB = dbData.pengeluaran_bulanan_institusi.map((pb: any) => {
+        if (pb.id === rowId) {
+          const nominal = field === 'nominal_pengeluaran' ? newValue : Number(pb.nominal_pengeluaran);
+          const qty = field === 'qty' ? newValue : Number(pb.qty);
+          return {
+            ...pb,
+            [field]: newValue,
+            sub_total: nominal * qty
+          };
+        }
+        return pb;
+      });
+
+      setDbData({ ...dbData, pengeluaran_bulanan_institusi: updatedPB });
+
+      const targetPB = updatedPB.find(p => p.id === rowId);
+      const updatePayload: any = {
+        [field]: newValue,
+        sub_total: targetPB ? targetPB.sub_total : 0
+      };
+
+      const { error } = await supabase
+        .from('pengeluaran_bulanan_institusi')
+        .update(updatePayload)
+        .eq('id', rowId);
+
+      if (error) {
+        console.error('Failed to update pengeluaran_bulanan_institusi in Supabase:', error.message);
+      }
+    }
+  };
+
   // ===== Shared editable cell render =====
   const renderEditableCellSD = (row: SumberDanaInstitusi, field: 'nominal' | 'realisasi') => {
     const value = row[field];
     return (
-      <td className="sheet-cell text-right">
-        {fmtRupiah(value)}
+      <td className="sheet-cell p-0">
+        <EditableCell
+          value={value}
+          onSave={(newValue) => handleSaveSD(row.id, field, newValue)}
+        />
       </td>
     );
   };
@@ -68,8 +168,12 @@ export default function ProfilInstitusiDetailPage() {
   const renderEditableCellPB = (row: PengeluaranBulananInstitusi, field: 'nominal_pengeluaran' | 'qty') => {
     const value = row[field];
     return (
-      <td className="sheet-cell text-right">
-        {field === 'qty' ? value : fmtRupiah(value)}
+      <td className="sheet-cell p-0">
+        <EditableCell
+          value={value}
+          onSave={(newValue) => handleSavePB(row.id, field, newValue)}
+          formatter={field === 'qty' ? (val) => val.toLocaleString('id-ID') : fmtRupiah}
+        />
       </td>
     );
   };

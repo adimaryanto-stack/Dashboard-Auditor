@@ -153,7 +153,7 @@ export default function DashboardPage() {
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)} T`, '']}
+                  formatter={(value: any) => [`${Number(value).toFixed(1)} T`, '']}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Bar dataKey="Nominal" fill="#6366f1" radius={[4, 4, 0, 0]} />
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)} T`, '']}
+                  formatter={(value: any) => [`${Number(value).toFixed(1)} T`, '']}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Area type="monotone" dataKey="Nominal" stroke="#6366f1" fill="url(#gradNominal)" strokeWidth={2} />
