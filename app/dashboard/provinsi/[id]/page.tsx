@@ -13,6 +13,7 @@ import { ArrowLeft, Banknote, Download, Sparkles } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
+import { rollupKabKotaChange } from '@/lib/utils/dbSync';
 
 export default function ProvinsiDetailPage() {
   const params = useParams();
@@ -143,70 +144,11 @@ export default function ProvinsiDetailPage() {
     }));
 
     if (isSupabaseMode && dbData) {
-      const updatedAlokasiKabkota = dbData.alokasi_kabupaten_kota.map((akk: any) => {
-        if (akk.id === rowId) {
-          const nominal = field === 'nominal_alokasi' ? newValue : Number(akk.nominal_alokasi);
-          const realisasi = field === 'realisasi_total' ? newValue : Number(akk.realisasi_total);
-          return {
-            ...akk,
-            [field]: newValue,
-            selisih: nominal - realisasi,
-            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0
-          };
-        }
-        return akk;
-      });
+      const updates = field === 'nominal_alokasi'
+        ? { nominal_alokasi: newValue }
+        : { realisasi_total: newValue };
 
-      const provinceKabkotaList = updatedAlokasiKabkota.filter((akk: any) => akk.alokasi_provinsi_id === provData?.id);
-      const newProvNominal = provinceKabkotaList.reduce((s, k) => s + Number(k.nominal_alokasi), 0);
-      const newProvRealisasi = provinceKabkotaList.reduce((s, k) => s + Number(k.realisasi_total), 0);
-
-      const updatedAlokasiProv = dbData.alokasi_provinsi.map((ap: any) => {
-        if (ap.id === provData?.id) {
-          return {
-            ...ap,
-            nominal_alokasi: newProvNominal,
-            realisasi_total: newProvRealisasi,
-            selisih: newProvNominal - newProvRealisasi,
-            persentase_penyerapan: newProvNominal > 0 ? (newProvRealisasi / newProvNominal) * 100 : 0
-          };
-        }
-        return ap;
-      });
-
-      setDbData({
-        ...dbData,
-        alokasi_kabupaten_kota: updatedAlokasiKabkota,
-        alokasi_provinsi: updatedAlokasiProv
-      });
-
-      const targetInst = updatedAlokasiKabkota.find(i => i.id === rowId);
-      if (targetInst) {
-        const updatePayload: any = {
-          [field]: newValue,
-          selisih: targetInst.selisih,
-          persentase_penyerapan: targetInst.persentase_penyerapan,
-          updated_at: new Date().toISOString()
-        };
-        await supabase
-          .from('alokasi_kabupaten_kota')
-          .update(updatePayload)
-          .eq('id', rowId);
-      }
-
-      const targetProv = updatedAlokasiProv.find(ap => ap.id === provData?.id);
-      if (targetProv) {
-        await supabase
-          .from('alokasi_provinsi')
-          .update({
-            nominal_alokasi: targetProv.nominal_alokasi,
-            realisasi_total: targetProv.realisasi_total,
-            selisih: targetProv.selisih,
-            persentase_penyerapan: targetProv.persentase_penyerapan,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', provData?.id);
-      }
+      await rollupKabKotaChange(dbData, setDbData, rowId, updates);
     }
   };
 

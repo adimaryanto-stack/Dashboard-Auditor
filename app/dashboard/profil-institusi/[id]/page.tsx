@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/store';
 import { getProfilInstitusi } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { SumberDanaInstitusi, PengeluaranBulananInstitusi } from '@/types';
-import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
@@ -25,6 +25,48 @@ export default function ProfilInstitusiDetailPage() {
   const [sumberDana, setSumberDana] = useState<SumberDanaInstitusi[]>([]);
   const [pengeluaran, setPengeluaran] = useState<PengeluaranBulananInstitusi[]>([]);
   const [nomorRekening, setNomorRekening] = useState('');
+  const [loadingLazy, setLoadingLazy] = useState(false);
+
+  useEffect(() => {
+    async function fetchLazyData() {
+      if (!isSupabaseMode || !dbData) return;
+
+      // Check if we already have these in the store
+      const hasSD = dbData.sumber_dana_institusi?.some((sd: any) => sd.institusi_id === id);
+      const hasPB = dbData.pengeluaran_bulanan_institusi?.some((pb: any) => pb.institusi_id === id);
+
+      if (hasSD && hasPB) return; // already loaded/cached
+
+      setLoadingLazy(true);
+      try {
+        const [sdRes, pbRes] = await Promise.all([
+          supabase.from('sumber_dana_institusi').select('*').eq('institusi_id', id),
+          supabase.from('pengeluaran_bulanan_institusi').select('*').eq('institusi_id', id)
+        ]);
+
+        if (sdRes.error) throw sdRes.error;
+        if (pbRes.error) throw pbRes.error;
+
+        const fetchedSD = sdRes.data || [];
+        const fetchedPB = pbRes.data || [];
+
+        const otherSD = (dbData.sumber_dana_institusi || []).filter((sd: any) => sd.institusi_id !== id);
+        const otherPB = (dbData.pengeluaran_bulanan_institusi || []).filter((pb: any) => pb.institusi_id !== id);
+
+        setDbData({
+          ...dbData,
+          sumber_dana_institusi: [...otherSD, ...fetchedSD],
+          pengeluaran_bulanan_institusi: [...otherPB, ...fetchedPB]
+        });
+      } catch (err: any) {
+        console.error('Error lazy loading details from Supabase:', err.message);
+      } finally {
+        setLoadingLazy(false);
+      }
+    }
+
+    fetchLazyData();
+  }, [id, isSupabaseMode, dbData, setDbData]);
 
   useEffect(() => {
     if (profilData) {
@@ -277,17 +319,34 @@ export default function ProfilInstitusiDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {sumberDana.map((row, idx) => (
-                  <tr key={row.id} className="hover:bg-indigo-50/50 transition">
-                    <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
-                    <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_sumber}</td>
-                    {renderEditableCellSD(row, 'nominal')}
-                    {renderEditableCellSD(row, 'realisasi')}
-                    <td className={`sheet-cell text-right font-medium ${row.saldo_di_bank >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {fmtRupiah(row.saldo_di_bank)}
+                {loadingLazy ? (
+                  <tr>
+                    <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                      <div className="flex items-center justify-center gap-2 py-4">
+                        <Loader2 size={16} className="animate-spin text-indigo-500" />
+                        <span>Memuat data anggaran dari Supabase...</span>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : sumberDana.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                      Tidak ada data sumber dana.
+                    </td>
+                  </tr>
+                ) : (
+                  sumberDana.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-indigo-50/50 transition">
+                      <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
+                      <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_sumber}</td>
+                      {renderEditableCellSD(row, 'nominal')}
+                      {renderEditableCellSD(row, 'realisasi')}
+                      <td className={`sheet-cell text-right font-medium ${row.saldo_di_bank >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {fmtRupiah(row.saldo_di_bank)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
               <tfoot>
                 <tr>
@@ -323,24 +382,41 @@ export default function ProfilInstitusiDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {pengeluaran.map((row) => (
-                  <tr key={row.id} className="hover:bg-indigo-50/50 transition">
-                    <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
-                    <td className="sheet-cell text-left font-medium text-text-primary">
-                      <Link
-                        href={`/dashboard/profil-institusi/${id}/rincian/${row.nomor}`}
-                        className="hover:text-accent hover:underline transition-colors"
-                      >
-                        {row.bulan}
-                      </Link>
-                    </td>
-                    {renderEditableCellPB(row, 'nominal_pengeluaran')}
-                    {renderEditableCellPB(row, 'qty')}
-                    <td className="sheet-cell text-right font-medium text-text-primary">
-                      {fmtRupiah(row.sub_total)}
+                {loadingLazy ? (
+                  <tr>
+                    <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                      <div className="flex items-center justify-center gap-2 py-4">
+                        <Loader2 size={16} className="animate-spin text-indigo-500" />
+                        <span>Memuat data pengeluaran dari Supabase...</span>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : pengeluaran.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                      Tidak ada data pengeluaran.
+                    </td>
+                  </tr>
+                ) : (
+                  pengeluaran.map((row) => (
+                    <tr key={row.id} className="hover:bg-indigo-50/50 transition">
+                      <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
+                      <td className="sheet-cell text-left font-medium text-text-primary">
+                        <Link
+                          href={`/dashboard/profil-institusi/${id}/rincian/${row.nomor}`}
+                          className="hover:text-accent hover:underline transition-colors"
+                        >
+                          {row.bulan}
+                        </Link>
+                      </td>
+                      {renderEditableCellPB(row, 'nominal_pengeluaran')}
+                      {renderEditableCellPB(row, 'qty')}
+                      <td className="sheet-cell text-right font-medium text-text-primary">
+                        {fmtRupiah(row.sub_total)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
               <tfoot>
                 <tr>

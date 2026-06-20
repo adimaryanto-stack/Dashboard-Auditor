@@ -98,7 +98,7 @@ export default function DashboardDbLoader({
         // Connection successful and tables exist! Start downloading everything
         setLoaderText('Mengunduh data anggaran dan wilayah...');
         
-        // Fetch all tables in parallel with full pagination
+        // Fetch all tables in parallel with full pagination (excluding large transactional tables)
         const [
           dataTahun,
           dataProv,
@@ -106,9 +106,6 @@ export default function DashboardDbLoader({
           dataKab,
           dataAlokasiKab,
           dataInst,
-          dataSD,
-          dataPB,
-          dataItems,
           dataUsers,
           dataAnoms
         ] = await Promise.all([
@@ -118,9 +115,6 @@ export default function DashboardDbLoader({
           fetchAllRows('kabupaten_kota'),
           fetchAllRows('alokasi_kabupaten_kota'),
           fetchAllRows('institusi_pendidikan'),
-          fetchAllRows('sumber_dana_institusi'),
-          fetchAllRows('pengeluaran_bulanan_institusi'),
-          fetchAllRows('rincian_pengeluaran_item'),
           fetchAllRows('users'),
           fetchAllRows('audit_anomaly')
         ]);
@@ -130,13 +124,29 @@ export default function DashboardDbLoader({
         const loadedDb = {
           tahun_anggaran: dataTahun,
           provinsi: dataProv,
-          alokasi_provinsi: dataAlokasiProv,
+          alokasi_provinsi: dataAlokasiProv.map((ap: any) => ({
+            ...ap,
+            provinsi: dataProv.find((p: any) => p.id === ap.provinsi_id) || {
+              id: ap.provinsi_id,
+              kode_provinsi: '',
+              nama_provinsi: ''
+            }
+          })),
           kabupaten_kota: dataKab,
-          alokasi_kabupaten_kota: dataAlokasiKab,
+          alokasi_kabupaten_kota: dataAlokasiKab.map((akk: any) => ({
+            ...akk,
+            kabupaten_kota: dataKab.find((k: any) => k.id === akk.kabupaten_kota_id) || {
+              id: akk.kabupaten_kota_id,
+              provinsi_id: '',
+              kode_kabupaten_kota: '',
+              nama_kabupaten_kota: '',
+              tipe: 'KABUPATEN'
+            }
+          })),
           institusi_pendidikan: dataInst,
-          sumber_dana_institusi: dataSD,
-          pengeluaran_bulanan_institusi: dataPB,
-          rincian_pengeluaran_item: dataItems,
+          sumber_dana_institusi: [],
+          pengeluaran_bulanan_institusi: [],
+          rincian_pengeluaran_item: [],
           users: dataUsers,
           audit_anomaly: dataAnoms
         };

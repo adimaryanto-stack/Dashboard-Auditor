@@ -13,6 +13,7 @@ import { ArrowLeft, Banknote, Download, School, Sparkles } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
+import { rollupInstitusiChange } from '@/lib/utils/dbSync';
 
 export default function KabkotaDetailPage() {
   const params = useParams();
@@ -168,102 +169,11 @@ export default function KabkotaDetailPage() {
     }));
 
     if (isSupabaseMode && dbData) {
-      const updatedDbInst = dbData.institusi_pendidikan.map((inst: any) => {
-        if (inst.id === rowId) {
-          const nominal = field === 'nominal_alokasi' ? newValue : Number(inst.nominal_alokasi);
-          const real = field === 'realisasi_total' ? newValue : Number(inst.realisasi_total);
-          return {
-            ...inst,
-            [field]: newValue,
-            selisih: nominal - real,
-            persentase_penyerapan: nominal > 0 ? (real / nominal) * 100 : 0
-          };
-        }
-        return inst;
-      });
+      const updates = field === 'nominal_alokasi'
+        ? { nominal_alokasi: newValue }
+        : { realisasi_total: newValue };
 
-      const kabkotaSchools = updatedDbInst.filter((inst: any) => inst.kabupaten_kota_id === kabkotaId);
-      const newKabNominal = kabkotaSchools.reduce((s, inst) => s + Number(inst.nominal_alokasi), 0);
-      const newKabRealisasi = kabkotaSchools.reduce((s, inst) => s + Number(inst.realisasi_total), 0);
-
-      const updatedDbAlokasiKab = dbData.alokasi_kabupaten_kota.map((akk: any) => {
-        if (akk.kabupaten_kota_id === kabkotaId) {
-          return {
-            ...akk,
-            nominal_alokasi: newKabNominal,
-            realisasi_total: newKabRealisasi,
-            selisih: newKabNominal - newKabRealisasi,
-            persentase_penyerapan: newKabNominal > 0 ? (newKabRealisasi / newKabNominal) * 100 : 0
-          };
-        }
-        return akk;
-      });
-
-      const provinceKabkotaList = updatedDbAlokasiKab.filter((akk: any) => akk.alokasi_provinsi_id === provData?.id);
-      const newProvNominal = provinceKabkotaList.reduce((s, k) => s + Number(k.nominal_alokasi), 0);
-      const newProvRealisasi = provinceKabkotaList.reduce((s, k) => s + Number(k.realisasi_total), 0);
-
-      const updatedDbAlokasiProv = dbData.alokasi_provinsi.map((ap: any) => {
-        if (ap.id === provData?.id) {
-          return {
-            ...ap,
-            nominal_alokasi: newProvNominal,
-            realisasi_total: newProvRealisasi,
-            selisih: newProvNominal - newProvRealisasi,
-            persentase_penyerapan: newProvNominal > 0 ? (newProvRealisasi / newProvNominal) * 100 : 0
-          };
-        }
-        return ap;
-      });
-
-      setDbData({
-        ...dbData,
-        institusi_pendidikan: updatedDbInst,
-        alokasi_kabupaten_kota: updatedDbAlokasiKab,
-        alokasi_provinsi: updatedDbAlokasiProv
-      });
-
-      const targetInst = updatedDbInst.find(i => i.id === rowId);
-      if (targetInst) {
-        const updatePayload: any = {
-          [field]: newValue,
-          selisih: targetInst.selisih,
-          persentase_penyerapan: targetInst.persentase_penyerapan,
-          updated_at: new Date().toISOString()
-        };
-        await supabase
-          .from('institusi_pendidikan')
-          .update(updatePayload)
-          .eq('id', rowId);
-      }
-
-      const targetKab = updatedDbAlokasiKab.find(k => k.kabupaten_kota_id === kabkotaId);
-      if (targetKab) {
-        await supabase
-          .from('alokasi_kabupaten_kota')
-          .update({
-            nominal_alokasi: targetKab.nominal_alokasi,
-            realisasi_total: targetKab.realisasi_total,
-            selisih: targetKab.selisih,
-            persentase_penyerapan: targetKab.persentase_penyerapan,
-            updated_at: new Date().toISOString()
-          })
-          .eq('kabupaten_kota_id', kabkotaId);
-      }
-
-      const targetProv = updatedDbAlokasiProv.find(ap => ap.id === provData?.id);
-      if (targetProv) {
-        await supabase
-          .from('alokasi_provinsi')
-          .update({
-            nominal_alokasi: targetProv.nominal_alokasi,
-            realisasi_total: targetProv.realisasi_total,
-            selisih: targetProv.selisih,
-            persentase_penyerapan: targetProv.persentase_penyerapan,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', provData?.id);
-      }
+      await rollupInstitusiChange(dbData, setDbData, rowId, updates);
     }
   };
 
@@ -434,13 +344,9 @@ export default function KabkotaDetailPage() {
                   <tr key={row.id} className="hover:bg-indigo-50/50 transition">
                     <td className="sheet-cell text-center text-text-muted text-xs">{idx + 1}</td>
                     <td className="sheet-cell text-left font-semibold text-slate-700">
-                      {row.jenjang === 'UNIVERSITAS' ? (
-                        <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors text-indigo-700">
-                          {row.nama_institusi}
-                        </Link>
-                      ) : (
-                        <span>{row.nama_institusi}</span>
-                      )}
+                      <Link href={`/dashboard/profil-institusi/${row.id}`} className="hover:text-accent hover:underline transition-colors text-indigo-700">
+                        {row.nama_institusi}
+                      </Link>
                     </td>
                     <td className="sheet-cell text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${

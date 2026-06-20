@@ -8,10 +8,11 @@ import { useAppStore } from '@/lib/store';
 import { getRincianPengeluaranBulanan } from '@/lib/data';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { RincianPengeluaranItem } from '@/types';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
+import { rollupInstitusiChange } from '@/lib/utils/dbSync';
 
 export default function RincianPengeluaranPage() {
   const params = useParams();
@@ -27,6 +28,56 @@ export default function RincianPengeluaranPage() {
 
   // Editable state
   const [items, setItems] = useState<RincianPengeluaranItem[]>([]);
+  const [loadingLazy, setLoadingLazy] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  useEffect(() => {
+    setHasFetched(false);
+  }, [institusiId, nomorBulan]);
+
+  useEffect(() => {
+    async function fetchLazyItems() {
+      if (!isSupabaseMode || !dbData || hasFetched) return;
+
+      const hasItems = dbData.rincian_pengeluaran_item?.some(
+        (item: any) => item.institusi_id === institusiId && Number(item.nomor_bulan) === nomorBulan
+      );
+
+      if (hasItems) {
+        setHasFetched(true);
+        return;
+      }
+
+      setLoadingLazy(true);
+      try {
+        const { data: itemsData, error } = await supabase
+          .from('rincian_pengeluaran_item')
+          .select('*')
+          .eq('institusi_id', institusiId)
+          .eq('nomor_bulan', nomorBulan);
+
+        if (error) throw error;
+
+        const fetchedItems = itemsData || [];
+
+        const otherItems = (dbData.rincian_pengeluaran_item || []).filter(
+          (item: any) => !(item.institusi_id === institusiId && Number(item.nomor_bulan) === nomorBulan)
+        );
+
+        setDbData({
+          ...dbData,
+          rincian_pengeluaran_item: [...otherItems, ...fetchedItems]
+        });
+        setHasFetched(true);
+      } catch (err: any) {
+        console.error('Error lazy loading items from Supabase:', err.message);
+      } finally {
+        setLoadingLazy(false);
+      }
+    }
+
+    fetchLazyItems();
+  }, [institusiId, nomorBulan, isSupabaseMode, dbData, setDbData, hasFetched]);
 
   useEffect(() => {
     if (rincianData) {
@@ -104,27 +155,19 @@ export default function RincianPengeluaranPage() {
       const schoolPBList = updatedDbPB.filter((pb: any) => pb.institusi_id === institusiId);
       const newSchoolRealisasi = schoolPBList.reduce((s, pb) => s + Number(pb.sub_total), 0);
 
-      const updatedDbInst = dbData.institusi_pendidikan.map((inst: any) => {
-        if (inst.id === institusiId) {
-          const nominal = Number(inst.nominal_alokasi);
-          const real = newSchoolRealisasi;
-          return {
-            ...inst,
-            realisasi_total: real,
-            selisih: nominal - real,
-            persentase_penyerapan: nominal > 0 ? (real / nominal) * 100 : 0
-          };
-        }
-        return inst;
-      });
-
-      setDbData({
+      // Save line-item & monthly total in dbData first
+      const intermediateDbData = {
         ...dbData,
         rincian_pengeluaran_item: updatedDbItems,
-        pengeluaran_bulanan_institusi: updatedDbPB,
-        institusi_pendidikan: updatedDbInst
+        pengeluaran_bulanan_institusi: updatedDbPB
+      };
+
+      // Perform school update & full hierarchy rollup in Supabase + Zustand
+      await rollupInstitusiChange(intermediateDbData, setDbData, institusiId, {
+        realisasi_total: newSchoolRealisasi
       });
 
+      // Perform individual item and month table updates in Supabase
       const targetItem = updatedDbItems.find(i => i.id === rowId);
       if (targetItem) {
         await supabase
@@ -144,19 +187,6 @@ export default function RincianPengeluaranPage() {
         })
         .eq('institusi_id', institusiId)
         .eq('nomor', nomorBulan);
-
-      const targetSchool = updatedDbInst.find(i => i.id === institusiId);
-      if (targetSchool) {
-        await supabase
-          .from('institusi_pendidikan')
-          .update({
-            realisasi_total: targetSchool.realisasi_total,
-            selisih: targetSchool.selisih,
-            persentase_penyerapan: targetSchool.persentase_penyerapan,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', institusiId);
-      }
     }
   };
 
@@ -233,17 +263,34 @@ export default function RincianPengeluaranPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => (
-                <tr key={row.id} className="hover:bg-indigo-50/50 transition">
-                  <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
-                  <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_produk_jasa}</td>
-                  {renderEditableCell(row, 'harga_satuan')}
-                  {renderEditableCell(row, 'qty')}
-                  <td className="sheet-cell text-right font-medium text-text-primary">
-                    {fmtRupiah(row.jumlah)}
+              {loadingLazy ? (
+                <tr>
+                  <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <Loader2 size={16} className="animate-spin text-indigo-500" />
+                      <span>Memuat rincian pengeluaran dari Supabase...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="sheet-cell text-center py-8 text-text-muted text-xs">
+                    Tidak ada rincian pengeluaran.
+                  </td>
+                </tr>
+              ) : (
+                items.map((row) => (
+                  <tr key={row.id} className="hover:bg-indigo-50/50 transition">
+                    <td className="sheet-cell text-center text-text-muted text-xs">{row.nomor}</td>
+                    <td className="sheet-cell text-left font-medium text-text-primary">{row.nama_produk_jasa}</td>
+                    {renderEditableCell(row, 'harga_satuan')}
+                    {renderEditableCell(row, 'qty')}
+                    <td className="sheet-cell text-right font-medium text-text-primary">
+                      {fmtRupiah(row.jumlah)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
             <tfoot>
               {/* Sub Total */}

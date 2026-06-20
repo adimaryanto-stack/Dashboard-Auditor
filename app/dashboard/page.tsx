@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import MetricCard from '@/components/ui/MetricCard';
 import PctBadge from '@/components/ui/PctBadge';
 import { getDashboardSummary } from '@/lib/data';
-import { fmtTriliun, fmtPct, getPctColor } from '@/lib/utils/formatters';
+import { fmtRupiah, fmtPct, getPctColor } from '@/lib/utils/formatters';
 import { Wallet, TrendingUp, PieChart, GraduationCap } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,14 +20,14 @@ export default function DashboardPage() {
 
   const barData = summary.per_jenjang.map(j => ({
     jenjang: j.jenjang === 'UNIVERSITAS' ? 'Univ' : j.jenjang,
-    Nominal: j.nominal / 1_000_000_000_000,
-    Realisasi: j.realisasi / 1_000_000_000_000,
+    Nominal: j.nominal,
+    Realisasi: j.realisasi,
   }));
 
   const trendData = summary.tren_tahunan.map(t => ({
     tahun: String(t.tahun),
-    Nominal: t.nominal / 1_000_000_000_000,
-    Realisasi: t.realisasi / 1_000_000_000_000,
+    Nominal: t.nominal,
+    Realisasi: t.realisasi,
   }));
 
   return (
@@ -39,7 +39,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
             title="Total Nominal APBN"
-            value={fmtTriliun(summary.total_nominal)}
+            value={fmtRupiah(summary.total_nominal)}
             subtitle={`Anggaran Pendidikan ${activeTahun}`}
             icon={<Wallet size={20} className="text-indigo-600" />}
             accent="indigo"
@@ -47,7 +47,7 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Total Realisasi"
-            value={fmtTriliun(summary.total_realisasi)}
+            value={fmtRupiah(summary.total_realisasi)}
             subtitle="Penyerapan anggaran terkini"
             icon={<TrendingUp size={20} className="text-emerald-600" />}
             accent="emerald"
@@ -94,9 +94,9 @@ export default function DashboardPage() {
                           </Link>
                         </div>
                       </td>
-                      <td className="sheet-cell text-right">{fmtTriliun(j.nominal)}</td>
-                      <td className="sheet-cell text-right">{fmtTriliun(j.realisasi)}</td>
-                      <td className="sheet-cell text-right text-rose-600">{fmtTriliun(selisih)}</td>
+                      <td className="sheet-cell text-right">{fmtRupiah(j.nominal)}</td>
+                      <td className="sheet-cell text-right">{fmtRupiah(j.realisasi)}</td>
+                      <td className="sheet-cell text-right text-rose-600">{fmtRupiah(selisih)}</td>
                       <td className="sheet-cell text-center">
                         <PctBadge value={j.persentase} />
                       </td>
@@ -118,9 +118,9 @@ export default function DashboardPage() {
               <tfoot>
                 <tr>
                   <td className="sheet-footer-cell text-left">TOTAL</td>
-                  <td className="sheet-footer-cell text-right">{fmtTriliun(summary.total_nominal)}</td>
-                  <td className="sheet-footer-cell text-right">{fmtTriliun(summary.total_realisasi)}</td>
-                  <td className="sheet-footer-cell text-right text-rose-600">{fmtTriliun(summary.total_nominal - summary.total_realisasi)}</td>
+                  <td className="sheet-footer-cell text-right">{fmtRupiah(summary.total_nominal)}</td>
+                  <td className="sheet-footer-cell text-right">{fmtRupiah(summary.total_realisasi)}</td>
+                  <td className="sheet-footer-cell text-right text-rose-600">{fmtRupiah(summary.total_nominal - summary.total_realisasi)}</td>
                   <td className="sheet-footer-cell text-center">
                     <PctBadge value={summary.persentase_penyerapan} size="md" />
                   </td>
@@ -150,10 +150,10 @@ export default function DashboardPage() {
               <BarChart data={barData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="jenjang" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => fmtRupiah(v)} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: any) => [`${Number(value).toFixed(1)} T`, '']}
+                  formatter={(value: any) => [fmtRupiah(Number(value)), '']}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Bar dataKey="Nominal" fill="#6366f1" radius={[4, 4, 0, 0]} />
@@ -179,10 +179,10 @@ export default function DashboardPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="tahun" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => `${v}T`} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickFormatter={(v) => fmtRupiah(v)} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value: any) => [`${Number(value).toFixed(1)} T`, '']}
+                  formatter={(value: any) => [fmtRupiah(Number(value)), '']}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
                 <Area type="monotone" dataKey="Nominal" stroke="#6366f1" fill="url(#gradNominal)" strokeWidth={2} />

@@ -13,6 +13,7 @@ import { Search, Download } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
+import { rollupInstitusiChange } from '@/lib/utils/dbSync';
 
 const jenjangLabels: Record<string, { label: string; jenjang: Jenjang }> = {
   universitas: { label: 'Universitas', jenjang: 'UNIVERSITAS' },
@@ -128,45 +129,11 @@ export default function JenjangPage() {
     }));
 
     if (isSupabaseMode && dbData) {
-      const updatedInstitusi = dbData.institusi_pendidikan.map((i: any) => {
-        if (i.id === rowId) {
-          const nominal = field === 'nominal' ? newValue : Number(i.nominal_alokasi);
-          const realisasi = field === 'realisasi' ? newValue : Number(i.realisasi_total);
-          return {
-            ...i,
-            nominal_alokasi: nominal,
-            realisasi_total: realisasi,
-            selisih: nominal - realisasi,
-            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0
-          };
-        }
-        return i;
-      });
+      const updates = field === 'nominal'
+        ? { nominal_alokasi: newValue }
+        : { realisasi_total: newValue };
 
-      setDbData({ ...dbData, institusi_pendidikan: updatedInstitusi });
-
-      const updatePayload: any = {};
-      if (field === 'nominal') {
-        updatePayload.nominal_alokasi = newValue;
-      } else {
-        updatePayload.realisasi_total = newValue;
-      }
-
-      const targetInst = updatedInstitusi.find(i => i.id === rowId);
-      if (targetInst) {
-        updatePayload.selisih = targetInst.selisih;
-        updatePayload.persentase_penyerapan = targetInst.persentase_penyerapan;
-        updatePayload.updated_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('institusi_pendidikan')
-        .update(updatePayload)
-        .eq('id', rowId);
-
-      if (error) {
-        console.error('Failed to update institusi_pendidikan in Supabase:', error.message);
-      }
+      await rollupInstitusiChange(dbData, setDbData, rowId, updates);
     }
   };
 

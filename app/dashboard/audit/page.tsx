@@ -83,6 +83,10 @@ export default function AuditPage() {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  const [tempStatus, setTempStatus] = useState<'TEMUAN' | 'INVESTIGASI' | 'SELESAI' | null>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState(false);
+
   // Statistics
   const activeCount = anomalies.filter(a => a.status !== 'SELESAI').length;
   const totalLoss = anomalies
@@ -90,7 +94,7 @@ export default function AuditPage() {
     .reduce((sum, a) => sum + a.nominal_selisih, 0);
   const resolvedCount = anomalies.filter(a => a.status === 'SELESAI').length;
 
-  // Initial greeting when an anomaly is selected
+  // Initial greeting and status initialization when an anomaly is selected
   useEffect(() => {
     if (selectedAnomaly) {
       setChatMessages([
@@ -101,6 +105,11 @@ export default function AuditPage() {
           timestamp: new Date()
         }
       ]);
+      setTempStatus(selectedAnomaly.status);
+      setSaveFeedback(false);
+    } else {
+      setTempStatus(null);
+      setSaveFeedback(false);
     }
   }, [selectedAnomaly]);
 
@@ -142,7 +151,7 @@ export default function AuditPage() {
     setActiveReport(null);
     
     const messages = [
-      'Menghubungkan ke InsForge AI Gateway...',
+      'Menghubungkan ke Gemini AI Gateway...',
       'Membaca histori sumber dana & alokasi bank...',
       'Memindai dokumen kuitansi & nota belanja bulanan...',
       'Mengevaluasi kepatuhan PPN (11%) & PPh...',
@@ -216,7 +225,7 @@ export default function AuditPage() {
     }, 800);
   };
 
-  const updateAnomalyStatus = (id: string, newStatus: 'TEMUAN' | 'INVESTIGASI' | 'SELESAI') => {
+  const updateAnomalyStatus = async (id: string, newStatus: 'TEMUAN' | 'INVESTIGASI' | 'SELESAI') => {
     setAnomalies(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     if (selectedAnomaly && selectedAnomaly.id === id) {
       setSelectedAnomaly(prev => prev ? { ...prev, status: newStatus } : null);
@@ -227,13 +236,28 @@ export default function AuditPage() {
     if (isSupabaseMode && dbData) {
       const updatedAnoms = dbData.audit_anomaly.map((a: any) => a.id === id ? { ...a, status: newStatus } : a);
       setDbData({ ...dbData, audit_anomaly: updatedAnoms });
-      supabase
+      const { error } = await supabase
         .from('audit_anomaly')
         .update({ status: newStatus })
-        .eq('id', id)
-        .then(({ error }) => {
-          if (error) console.error('Failed to update status in Supabase:', error.message);
-        });
+        .eq('id', id);
+      if (error) {
+        console.error('Failed to update status in Supabase:', error.message);
+      }
+    }
+  };
+
+  const handleSaveStatus = async () => {
+    if (!selectedAnomaly || !tempStatus) return;
+    setIsSavingStatus(true);
+    setSaveFeedback(false);
+    try {
+      await updateAnomalyStatus(selectedAnomaly.id, tempStatus);
+      setSaveFeedback(true);
+      setTimeout(() => setSaveFeedback(false), 2000);
+    } catch (err) {
+      console.error('Error saving status:', err);
+    } finally {
+      setIsSavingStatus(false);
     }
   };
 
@@ -715,22 +739,63 @@ export default function AuditPage() {
                   </div>
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => updateAnomalyStatus(selectedAnomaly.id, 'TEMUAN')}
-                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center ${selectedAnomaly.status === 'TEMUAN' ? 'bg-red-600 text-white shadow-sm' : 'btn-ghost'}`}
+                      onClick={() => setTempStatus('TEMUAN')}
+                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center transition-all duration-200 border ${
+                        tempStatus === 'TEMUAN' 
+                          ? 'bg-red-600 text-white border-red-600 shadow-sm shadow-red-500/20' 
+                          : 'btn-ghost border-slate-200 text-text-secondary hover:bg-slate-50'
+                      }`}
                     >
                       Temuan
                     </button>
                     <button
-                      onClick={() => updateAnomalyStatus(selectedAnomaly.id, 'INVESTIGASI')}
-                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center ${selectedAnomaly.status === 'INVESTIGASI' ? 'bg-indigo-600 text-white shadow-sm' : 'btn-ghost'}`}
+                      onClick={() => setTempStatus('INVESTIGASI')}
+                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center transition-all duration-200 border ${
+                        tempStatus === 'INVESTIGASI' 
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20' 
+                          : 'btn-ghost border-slate-200 text-text-secondary hover:bg-slate-50'
+                      }`}
                     >
                       Investigasi
                     </button>
                     <button
-                      onClick={() => updateAnomalyStatus(selectedAnomaly.id, 'SELESAI')}
-                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center ${selectedAnomaly.status === 'SELESAI' ? 'bg-emerald-600 text-white shadow-sm' : 'btn-ghost'}`}
+                      onClick={() => setTempStatus('SELESAI')}
+                      className={`btn flex-1 py-1.5 text-xs font-semibold justify-center transition-all duration-200 border ${
+                        tempStatus === 'SELESAI' 
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/20' 
+                          : 'btn-ghost border-slate-200 text-text-secondary hover:bg-slate-50'
+                      }`}
                     >
                       Selesai
+                    </button>
+                  </div>
+                  
+                  {/* Save Action Button */}
+                  <div className="mt-3">
+                    <button
+                      onClick={handleSaveStatus}
+                      disabled={isSavingStatus || tempStatus === selectedAnomaly.status}
+                      className={`btn w-full py-2 text-xs font-bold justify-center transition-all duration-200 ${
+                        saveFeedback 
+                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 shadow-sm shadow-emerald-500/10' 
+                          : tempStatus === selectedAnomaly.status 
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-500/10'
+                      }`}
+                    >
+                      {isSavingStatus ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin mr-1.5" />
+                          Menyimpan...
+                        </>
+                      ) : saveFeedback ? (
+                        <>
+                          <CheckCircle2 size={13} className="mr-1.5" />
+                          Tersimpan!
+                        </>
+                      ) : (
+                        'Simpan Tindak Lanjut'
+                      )}
                     </button>
                   </div>
                 </div>
