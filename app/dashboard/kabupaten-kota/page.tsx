@@ -12,6 +12,7 @@ import { Search, Download } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import EditableCell from '@/components/spreadsheet/EditableCell';
+import { rollupKabKotaChange } from '@/lib/utils/dbSync';
 
 export default function KabupatenKotaPage() {
   const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
@@ -123,45 +124,10 @@ export default function KabupatenKotaPage() {
     }));
 
     if (isSupabaseMode && dbData) {
-      const updatedAlokasiKabkota = dbData.alokasi_kabupaten_kota.map((akk: any) => {
-        if (akk.id === rowId) {
-          const nominal = field === 'nominal' ? newValue : Number(akk.nominal_alokasi);
-          const realisasi = field === 'realisasi' ? newValue : Number(akk.realisasi_total);
-          return {
-            ...akk,
-            nominal_alokasi: nominal,
-            realisasi_total: realisasi,
-            selisih: nominal - realisasi,
-            persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0
-          };
-        }
-        return akk;
-      });
-
-      setDbData({ ...dbData, alokasi_kabupaten_kota: updatedAlokasiKabkota });
-
-      const updatePayload: any = {};
-      if (field === 'nominal') {
-        updatePayload.nominal_alokasi = newValue;
-      } else {
-        updatePayload.realisasi_total = newValue;
-      }
-
-      const targetInst = updatedAlokasiKabkota.find(i => i.id === rowId);
-      if (targetInst) {
-        updatePayload.selisih = targetInst.selisih;
-        updatePayload.persentase_penyerapan = targetInst.persentase_penyerapan;
-        updatePayload.updated_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('alokasi_kabupaten_kota')
-        .update(updatePayload)
-        .eq('id', rowId);
-
-      if (error) {
-        console.error('Failed to update alokasi_kabupaten_kota in Supabase:', error.message);
-      }
+      const updates = field === 'nominal'
+        ? { nominal_alokasi: newValue }
+        : { realisasi_total: newValue };
+      await rollupKabKotaChange(dbData, setDbData, rowId, updates);
     }
   };
 
