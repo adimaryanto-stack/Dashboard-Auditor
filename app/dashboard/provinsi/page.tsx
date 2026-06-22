@@ -11,9 +11,33 @@ import { AlokasiProvinsi } from '@/types';
 import { Search, Download, RefreshCw } from 'lucide-react';
 
 export default function ProvinsiPage() {
-  const { activeTahun } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData } = useAppStore();
 
   const scaledProvinsiData = useMemo(() => {
+    // Jika Supabase mode aktif dan data tersedia, pakai data dari Supabase
+    if (isSupabaseMode && dbData && dbData.alokasi_provinsi.length > 0) {
+      return dbData.alokasi_provinsi.map((ap: any) => {
+        const prov = dbData.provinsi.find((p: any) => p.id === ap.provinsi_id);
+        return {
+          id: ap.id,
+          tahun_anggaran_id: ap.tahun_anggaran_id,
+          provinsi_id: ap.provinsi_id,
+          provinsi: prov
+            ? { id: prov.id, kode_provinsi: prov.kode_provinsi, nama_provinsi: prov.nama_provinsi }
+            : { id: ap.provinsi_id, kode_provinsi: '', nama_provinsi: 'Provinsi' },
+          nominal_alokasi: Number(ap.nominal_alokasi),
+          realisasi_total: Number(ap.realisasi_total),
+          selisih: Number(ap.nominal_alokasi) - Number(ap.realisasi_total),
+          persentase_penyerapan:
+            Number(ap.nominal_alokasi) > 0
+              ? Math.round((Number(ap.realisasi_total) / Number(ap.nominal_alokasi)) * 1000) / 10
+              : 0,
+          updated_at: ap.updated_at,
+        } as AlokasiProvinsi;
+      });
+    }
+
+    // Fallback: gunakan mock data dengan scaling per tahun
     const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
     const baseTahun = tahunAnggaranData[6];
     const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
@@ -31,7 +55,7 @@ export default function ProvinsiPage() {
         persentase_penyerapan: nominal > 0 ? (realisasi / nominal) * 100 : 0,
       };
     });
-  }, [activeTahun]);
+  }, [activeTahun, isSupabaseMode, dbData]);
 
   const [data, setData] = useState<AlokasiProvinsi[]>(scaledProvinsiData);
 
@@ -65,7 +89,7 @@ export default function ProvinsiPage() {
     <div className="min-h-screen">
       <Header
         title="Provinsi"
-        subtitle={`Alokasi APBN Pendidikan per Wilayah Provinsi Tahun ${activeTahun}`}
+        subtitle={`Alokasi APBN Pendidikan per Wilayah Provinsi Tahun ${activeTahun}${isSupabaseMode ? ' • Supabase' : ' • Mock Data'}`}
       />
 
       <div className="p-6">
@@ -82,7 +106,7 @@ export default function ProvinsiPage() {
             />
           </div>
           <span className="text-xs text-text-muted flex-1">{filtered.length} provinsi</span>
-          <button className="btn btn-ghost">
+          <button className="btn btn-ghost" onClick={() => setData(scaledProvinsiData)}>
             <RefreshCw size={14} />
             Refresh
           </button>

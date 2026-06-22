@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
+import { useAppStore } from '@/lib/store';
 import { getAllInstitusi, alokasiProvinsiData } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import { Jenjang } from '@/types';
-import { Search, ExternalLink } from 'lucide-react';
+import { Search, ExternalLink, Loader2 } from 'lucide-react';
 
 const jenjangOptions: { value: '' | Jenjang; label: string }[] = [
   { value: '', label: 'Semua Jenjang' },
@@ -19,7 +21,42 @@ const jenjangOptions: { value: '' | Jenjang; label: string }[] = [
 ];
 
 export default function ProfilInstitusiPage() {
-  const allInstitusi = useMemo(() => getAllInstitusi(), []);
+  const { isSupabaseMode, dbData, updateInstitusiData } = useAppStore();
+  const [isLoadingInstitusi, setIsLoadingInstitusi] = useState(false);
+
+  // Lazy-load institusi dari Supabase jika belum ada di dbData
+  useEffect(() => {
+    if (!isSupabaseMode || !dbData) return;
+    if (dbData.institusi_pendidikan.length > 0) return;
+
+    setIsLoadingInstitusi(true);
+    supabase
+      .from('institusi_pendidikan')
+      .select('*')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          updateInstitusiData(data);
+        }
+        setIsLoadingInstitusi(false);
+      });
+  }, [isSupabaseMode, dbData]);
+
+  const allInstitusi = useMemo(() => {
+    if (isSupabaseMode && dbData && dbData.institusi_pendidikan.length > 0) {
+      return dbData.institusi_pendidikan.map((item: any) => ({
+        ...item,
+        nominal_alokasi: Number(item.nominal_alokasi),
+        realisasi_total: Number(item.realisasi_total),
+        selisih: Number(item.nominal_alokasi) - Number(item.realisasi_total),
+        persentase_penyerapan:
+          Number(item.nominal_alokasi) > 0
+            ? Math.round((Number(item.realisasi_total) / Number(item.nominal_alokasi)) * 1000) / 10
+            : 0,
+      }));
+    }
+    return getAllInstitusi();
+  }, [isSupabaseMode, dbData]);
+
   const [search, setSearch] = useState('');
   const [selectedJenjang, setSelectedJenjang] = useState<'' | Jenjang>('');
   const [selectedProvinsiId, setSelectedProvinsiId] = useState('');
@@ -47,10 +84,18 @@ export default function ProfilInstitusiPage() {
     <div className="min-h-screen">
       <Header
         title="Profil Institusi"
-        subtitle="Klik nama institusi untuk melihat detail profil keuangan"
+        subtitle={`Klik nama institusi untuk detail keuangan${isSupabaseMode ? ' • Supabase' : ' • Mock Data'}`}
       />
 
       <div className="p-6">
+        {/* Loading Indicator */}
+        {isLoadingInstitusi && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-lg">
+            <Loader2 size={13} className="animate-spin" />
+            Memuat data institusi dari Supabase...
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="sheet-toolbar flex-wrap">
           <div className="flex items-center gap-2">

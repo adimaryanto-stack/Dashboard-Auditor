@@ -30,32 +30,35 @@ export default function DashboardDbLoader({
   const [failReason, setFailReason] = useState('');
 
   useEffect(() => {
+    // Jika sudah pernah dimuat di session ini, skip
+    if (isSupabaseMode && dbData) {
+      return;
+    }
+
     async function loadDatabase() {
-      // Check if environment variables are set
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
       if (!url || !key) {
-        console.log('[Supabase Loader] Credentials missing. Falling back to local Mock Data.');
+        console.log('[Supabase Loader] Credentials missing. Falling back to Mock Data.');
         setIsSupabaseMode(false);
         setIsLoadingDb(false);
         return;
       }
 
       setIsLoadingDb(true);
-      setLoaderText('Memeriksa skema database Supabase...');
+      setLoaderText('Memeriksa koneksi Supabase...');
 
       try {
-        // Test query on one table to see if connection works and schema exists
-        const { data: testData, error: testError } = await supabase
+        // Test koneksi dengan query ringan
+        const { error: testError } = await supabase
           .from('tahun_anggaran')
-          .select('*')
+          .select('id')
           .limit(1);
 
         if (testError) {
-          // If connection fails or table doesn't exist, fall back to mock data
           if (testError.message.includes('relation') || testError.message.includes('does not exist')) {
-            console.warn('[Supabase Loader] Table "tahun_anggaran" does not exist in Supabase. Run schema DDL first. Falling back to Mock Data.');
+            console.warn('[Supabase Loader] Tabel tidak ditemukan. Gunakan Mock Data.');
             setIsSupabaseMode(false);
             setIsLoadingDb(false);
             return;
@@ -63,120 +66,90 @@ export default function DashboardDbLoader({
           throw testError;
         }
 
-        // Define paginated fetch function
-        async function fetchAllRows(tableName: string) {
-          let allData: any[] = [];
+        // Fetch bertahap: hanya tabel ringan/referensi di awal
+        // Tabel berat (institusi, pengeluaran, rincian) di-lazy-load per halaman
+        async function fetchAll(tableName: string) {
+          let all: any[] = [];
           let from = 0;
           const limit = 1000;
-          let hasMore = true;
 
-          while (hasMore) {
+          while (true) {
             const { data, error } = await supabase
               .from(tableName)
               .select('*')
               .range(from, from + limit - 1);
 
-            if (error) {
-              throw error;
-            }
+            if (error) throw error;
+            if (!data || data.length === 0) break;
 
-            if (data) {
-              allData = [...allData, ...data];
-              if (data.length < limit) {
-                hasMore = false;
-              } else {
-                from += limit;
-              }
-            } else {
-              hasMore = false;
-            }
+            all = [...all, ...data];
+            if (data.length < limit) break;
+            from += limit;
           }
 
-          return allData;
+          return all;
         }
 
-        // Connection successful and tables exist! Start downloading everything
-        setLoaderText('Mengunduh data anggaran dan wilayah...');
-        
-        // Fetch all tables in parallel with full pagination (excluding large transactional tables)
-        const [
-          dataTahun,
-          dataProv,
-          dataAlokasiProv,
-          dataKab,
-          dataAlokasiKab,
-          dataInst,
-          dataUsers,
-          dataAnoms
-        ] = await Promise.all([
-          fetchAllRows('tahun_anggaran'),
-          fetchAllRows('provinsi'),
-          fetchAllRows('alokasi_provinsi'),
-          fetchAllRows('kabupaten_kota'),
-          fetchAllRows('alokasi_kabupaten_kota'),
-          fetchAllRows('institusi_pendidikan'),
-          fetchAllRows('users'),
-          fetchAllRows('audit_anomaly')
+        setLoaderText('Mengunduh data referensi...');
+
+        // Batch 1: Tabel kecil / referensi — cepat
+        const [dataTahun, dataProv, dataAlokasiProv] = await Promise.all([
+          fetchAll('tahun_anggaran'),
+          fetchAll('provinsi'),
+          fetchAll('alokasi_provinsi'),
         ]);
 
-        setLoaderText('Sinkronisasi data sistem...');
+        setLoaderText('Mengunduh data wilayah...');
+
+        // Batch 2: Kabupaten/kota — menengah
+        const [dataKab, dataAlokasiKab, dataUsers, dataAnoms] = await Promise.all([
+          fetchAll('kabupaten_kota'),
+          fetchAll('alokasi_kabupaten_kota'),
+          fetchAll('users'),
+          fetchAll('audit_anomaly'),
+        ]);
+
+        setLoaderText('Sinkronisasi selesai...');
 
         const loadedDb = {
           tahun_anggaran: dataTahun,
           provinsi: dataProv,
-          alokasi_provinsi: dataAlokasiProv.map((ap: any) => ({
-            ...ap,
-            provinsi: dataProv.find((p: any) => p.id === ap.provinsi_id) || {
-              id: ap.provinsi_id,
-              kode_provinsi: '',
-              nama_provinsi: ''
-            }
-          })),
+          alokasi_provinsi: dataAlokasiProv,
           kabupaten_kota: dataKab,
-          alokasi_kabupaten_kota: dataAlokasiKab.map((akk: any) => ({
-            ...akk,
-            kabupaten_kota: dataKab.find((k: any) => k.id === akk.kabupaten_kota_id) || {
-              id: akk.kabupaten_kota_id,
-              provinsi_id: '',
-              kode_kabupaten_kota: '',
-              nama_kabupaten_kota: '',
-              tipe: 'KABUPATEN'
-            }
-          })),
-          institusi_pendidikan: dataInst,
+          alokasi_kabupaten_kota: dataAlokasiKab,
+          // Tabel berat dimuat lazy di halaman masing-masing
+          institusi_pendidikan: [],
           sumber_dana_institusi: [],
           pengeluaran_bulanan_institusi: [],
           rincian_pengeluaran_item: [],
           users: dataUsers,
-          audit_anomaly: dataAnoms
+          audit_anomaly: dataAnoms,
         };
 
-        // Cache in Zustand store
         setDbData(loadedDb);
         setIsSupabaseMode(true);
 
-        // Sync local memory let variables in lib/data
+        // Sync variabel modul lib/data
         updateTahunAnggaranData(loadedDb.tahun_anggaran);
         updateAlokasiProvinsiData(loadedDb.alokasi_provinsi);
         updateUsersData(loadedDb.users);
         updateMockAnomalies(loadedDb.audit_anomaly);
 
-        console.log('[Supabase Loader] Synced all tables from Supabase successfully.');
+        console.log('[Supabase Loader] Berhasil sinkron tabel referensi dari Supabase.');
       } catch (err: any) {
-        console.error('[Supabase Loader] Connection failed:', err.message);
+        console.error('[Supabase Loader] Koneksi gagal:', err.message);
         setInitFailed(true);
         setFailReason(err.message || 'Gagal menghubungi server Supabase.');
-        // Auto fallback to mock data after 3 seconds warning
+        // Bug fix: tunggu 3 detik lalu fallback ke mock data
         setTimeout(() => {
           setIsSupabaseMode(false);
-          setIsLoadingDb(false);
+          setIsLoadingDb(false); // ← hanya di-set false SETELAH timeout catch selesai
         }, 3000);
-      } finally {
-        // Wait a tiny bit for user experience
-        setTimeout(() => {
-          setIsLoadingDb(false);
-        }, 600);
+        return; // ← PENTING: return agar finally tidak mempengaruhi
       }
+
+      // Hanya sampai di sini jika sukses
+      setIsLoadingDb(false);
     }
 
     loadDatabase();
@@ -193,19 +166,17 @@ export default function DashboardDbLoader({
 
           {initFailed ? (
             <>
-              {/* Failure UI */}
               <div className="relative p-4 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-full animate-bounce">
                 <CloudAlert size={40} />
               </div>
               <div className="space-y-2">
                 <h3 className="text-lg font-bold text-white">Koneksi Supabase Gagal</h3>
                 <p className="text-xs text-slate-400 break-all px-4">{failReason}</p>
-                <p className="text-xs text-indigo-400 font-semibold mt-4">Mengalihkan secara otomatis ke Mode Mock Data...</p>
+                <p className="text-xs text-indigo-400 font-semibold mt-4">Mengalihkan ke Mode Mock Data...</p>
               </div>
             </>
           ) : (
             <>
-              {/* Loading UI */}
               <div className="relative">
                 <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-xl scale-125 animate-pulse" />
                 <div className="relative p-6 bg-slate-900 border border-slate-800 text-indigo-500 rounded-3xl shadow-2xl flex items-center justify-center">
@@ -221,7 +192,7 @@ export default function DashboardDbLoader({
                 </div>
                 <h3 className="text-md font-bold text-white tracking-wide">{loaderText}</h3>
                 <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                  Menyinkronkan data transaksional anggaran pendidikan nasional langsung dari cloud database
+                  Menyinkronkan data anggaran pendidikan nasional dari cloud database
                 </p>
               </div>
             </>

@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import PctBadge from '@/components/ui/PctBadge';
 import { useAppStore } from '@/lib/store';
 import { getInstitusiByJenjang, alokasiProvinsiData, getKabkotaByProvinsi, tahunAnggaranData } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
 import { fmtRupiah, fmtTriliun } from '@/lib/utils/formatters';
 import { Jenjang, InstitusiPendidikan } from '@/types';
-import { Search, Download } from 'lucide-react';
-
-import { supabase } from '@/lib/supabase';
+import { Search, Download, Loader2 } from 'lucide-react';
 import EditableCell from '@/components/spreadsheet/EditableCell';
 import { rollupInstitusiChange } from '@/lib/utils/dbSync';
 
@@ -27,23 +26,47 @@ export default function JenjangPage() {
   const params = useParams();
   const slug = params.jenjang as string;
   const config = jenjangLabels[slug] || jenjangLabels.universitas;
-  const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
+  const { activeTahun, isSupabaseMode, dbData, setDbData, updateInstitusiData } = useAppStore();
+
+  const [isLoadingInstitusi, setIsLoadingInstitusi] = useState(false);
+
+  // Lazy-load institusi dari Supabase jika belum ada di dbData
+  useEffect(() => {
+    if (!isSupabaseMode || !dbData) return;
+    if (dbData.institusi_pendidikan.length > 0) return; // sudah ada
+
+    setIsLoadingInstitusi(true);
+    supabase
+      .from('institusi_pendidikan')
+      .select('*')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          updateInstitusiData(data);
+        }
+        setIsLoadingInstitusi(false);
+      });
+  }, [isSupabaseMode, dbData]);
 
   const rawData = useMemo(() => {
     const list = getInstitusiByJenjang(config.jenjang);
 
-    if (isSupabaseMode && dbData) {
-      return list.map(item => ({
-        ...item,
-        nominal_alokasi: Number(item.nominal_alokasi),
-        realisasi_total: Number(item.realisasi_total),
-        selisih: Number(item.nominal_alokasi) - Number(item.realisasi_total),
-        persentase_penyerapan: Number(item.nominal_alokasi) > 0 
-          ? Math.round((Number(item.realisasi_total) / Number(item.nominal_alokasi)) * 1000) / 10 
-          : 0
-      }));
+    if (isSupabaseMode && dbData && dbData.institusi_pendidikan.length > 0) {
+      // Filter dari dbData yang sudah lazy-loaded
+      return dbData.institusi_pendidikan
+        .filter((i: any) => i.jenjang === config.jenjang)
+        .map((item: any) => ({
+          ...item,
+          nominal_alokasi: Number(item.nominal_alokasi),
+          realisasi_total: Number(item.realisasi_total),
+          selisih: Number(item.nominal_alokasi) - Number(item.realisasi_total),
+          persentase_penyerapan:
+            Number(item.nominal_alokasi) > 0
+              ? Math.round((Number(item.realisasi_total) / Number(item.nominal_alokasi)) * 1000) / 10
+              : 0,
+        }));
     }
 
+    // Fallback ke mock data dengan scaling tahun
     const targetTahun = tahunAnggaranData.find(t => t.tahun === activeTahun) || tahunAnggaranData[6];
     const baseTahun = tahunAnggaranData[6];
     const scale = targetTahun.total_anggaran > 0 ? targetTahun.total_anggaran / baseTahun.total_anggaran : 1.0;
@@ -74,9 +97,6 @@ export default function JenjangPage() {
   const [selectedKabKotaName, setSelectedKabKotaName] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
-  // Reset when jenjang changes
-  useMemo(() => { setData(rawData); }, [rawData]);
-
   const kabkotaOptions = useMemo(() => {
     if (!selectedProvinsiId) return [];
     return getKabkotaByProvinsi(selectedProvinsiId);
@@ -84,27 +104,27 @@ export default function JenjangPage() {
 
   const filtered = useMemo(() => {
     let result = data;
-    
+
     if (selectedProvinsiId) {
       const prov = alokasiProvinsiData.find(p => p.provinsi_id === selectedProvinsiId);
       if (prov) {
         result = result.filter(inst => inst.provinsi_nama === prov.provinsi.nama_provinsi);
       }
     }
-    
+
     if (selectedKabKotaName) {
       result = result.filter(inst => inst.kabupaten_kota_nama === selectedKabKotaName);
     }
-    
+
     if (selectedStatus) {
       result = result.filter(inst => inst.status_sekolah === selectedStatus);
     }
-    
+
     if (search) {
       result = result.filter(inst => inst.nama_institusi.toLowerCase().includes(search.toLowerCase()));
     }
     return result;
-  }, [data, search, selectedProvinsiId, selectedKabKotaName]);
+  }, [data, search, selectedProvinsiId, selectedKabKotaName, selectedStatus]);
 
   const totals = useMemo(() => {
     const nom = filtered.reduce((s, i) => s + i.nominal_alokasi, 0);
@@ -151,9 +171,20 @@ export default function JenjangPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title={`Jenjang: ${config.label}`} subtitle={`Data alokasi dan realisasi institusi ${config.label} Tahun ${activeTahun}`} />
+      <Header
+        title={`Jenjang: ${config.label}`}
+        subtitle={`Data alokasi dan realisasi institusi ${config.label} Tahun ${activeTahun}${isSupabaseMode ? ' • Supabase' : ' • Mock Data'}`}
+      />
 
       <div className="p-6">
+        {/* Loading Institusi Indicator */}
+        {isLoadingInstitusi && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-lg">
+            <Loader2 size={13} className="animate-spin" />
+            Memuat data institusi dari Supabase...
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="sheet-toolbar flex-wrap">
           <div className="flex items-center gap-2">
