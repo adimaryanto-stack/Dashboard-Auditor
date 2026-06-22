@@ -30,8 +30,30 @@ export default function DashboardDbLoader({
   const [failReason, setFailReason] = useState('');
 
   useEffect(() => {
-    // Jika sudah pernah dimuat di session ini, skip
+    // Jika sudah pernah dimuat di session ini, sync dan skip
     if (isSupabaseMode && dbData) {
+      const dataAlokasiProv = dbData.alokasi_provinsi || [];
+      const dataProv = dbData.provinsi || [];
+      const hasProvinsiRelation = dataAlokasiProv.length > 0 && dataAlokasiProv[0].provinsi;
+      
+      let populated = dataAlokasiProv;
+      if (!hasProvinsiRelation && dataProv.length > 0) {
+        populated = dataAlokasiProv.map((ap: any) => {
+          const prov = dataProv.find((p: any) => p.id === ap.provinsi_id);
+          return {
+            ...ap,
+            provinsi: prov
+              ? { id: prov.id, kode_provinsi: prov.kode_provinsi, nama_provinsi: prov.nama_provinsi }
+              : { id: ap.provinsi_id, kode_provinsi: '', nama_provinsi: 'Provinsi' }
+          };
+        });
+        setDbData({ ...dbData, alokasi_provinsi: populated });
+      }
+
+      updateTahunAnggaranData(dbData.tahun_anggaran || []);
+      updateAlokasiProvinsiData(populated);
+      updateUsersData(dbData.users || []);
+      updateMockAnomalies(dbData.audit_anomaly || []);
       return;
     }
 
@@ -111,10 +133,21 @@ export default function DashboardDbLoader({
 
         setLoaderText('Sinkronisasi selesai...');
 
+        // Populate provinsi relation on alokasi_provinsi
+        const populatedAlokasiProv = dataAlokasiProv.map((ap: any) => {
+          const prov = dataProv.find((p: any) => p.id === ap.provinsi_id);
+          return {
+            ...ap,
+            provinsi: prov
+              ? { id: prov.id, kode_provinsi: prov.kode_provinsi, nama_provinsi: prov.nama_provinsi }
+              : { id: ap.provinsi_id, kode_provinsi: '', nama_provinsi: 'Provinsi' }
+          };
+        });
+
         const loadedDb = {
           tahun_anggaran: dataTahun,
           provinsi: dataProv,
-          alokasi_provinsi: dataAlokasiProv,
+          alokasi_provinsi: populatedAlokasiProv,
           kabupaten_kota: dataKab,
           alokasi_kabupaten_kota: dataAlokasiKab,
           // Tabel berat dimuat lazy di halaman masing-masing

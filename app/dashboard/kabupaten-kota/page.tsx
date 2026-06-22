@@ -15,10 +15,47 @@ import EditableCell from '@/components/spreadsheet/EditableCell';
 
 export default function KabupatenKotaPage() {
   const { activeTahun, isSupabaseMode, dbData, setDbData } = useAppStore();
-  const [selectedProvinsi, setSelectedProvinsi] = useState(alokasiProvinsiData[11].provinsi_id); // Jawa Barat
+  const [selectedProvinsi, setSelectedProvinsi] = useState(() => {
+    // Safe initial default from mock data
+    const jabar = alokasiProvinsiData.find(p => p.provinsi?.nama_provinsi === 'Jawa Barat');
+    return jabar ? jabar.provinsi_id : (alokasiProvinsiData[0]?.provinsi_id || '');
+  });
   const [search, setSearch] = useState('');
 
+  // Build the provinsi list from dbData (Supabase) or module variable (mock)
+  const provinsiList = useMemo(() => {
+    if (isSupabaseMode && dbData && dbData.alokasi_provinsi.length > 0) {
+      return dbData.alokasi_provinsi.map((ap: any) => {
+        const prov = ap.provinsi || dbData.provinsi?.find((p: any) => p.id === ap.provinsi_id);
+        return {
+          provinsi_id: ap.provinsi_id,
+          provinsi: prov
+            ? { id: prov.id, kode_provinsi: prov.kode_provinsi, nama_provinsi: prov.nama_provinsi }
+            : { id: ap.provinsi_id, kode_provinsi: '', nama_provinsi: 'Provinsi' }
+        };
+      });
+    }
+    return alokasiProvinsiData.map(p => ({
+      provinsi_id: p.provinsi_id,
+      provinsi: p.provinsi
+    }));
+  }, [isSupabaseMode, dbData]);
+
+  // Sync selectedProvinsi when provinsiList changes (e.g., Supabase data arrives)
+  useEffect(() => {
+    if (provinsiList.length === 0) return;
+    // Check if current selection is valid in the new list
+    const currentValid = provinsiList.some((p: any) => p.provinsi_id === selectedProvinsi);
+    if (!currentValid) {
+      const jabar = provinsiList.find((p: any) =>
+        p.provinsi.nama_provinsi === 'Jawa Barat'
+      );
+      setSelectedProvinsi(jabar ? jabar.provinsi_id : provinsiList[0].provinsi_id);
+    }
+  }, [provinsiList]);
+
   const rawData = useMemo(() => {
+    if (!selectedProvinsi) return [];
     const list = getKabkotaByProvinsi(selectedProvinsi);
 
     if (isSupabaseMode && dbData) {
@@ -140,7 +177,7 @@ export default function KabupatenKotaPage() {
     );
   };
 
-  const selectedProvName = alokasiProvinsiData.find(p => p.provinsi_id === selectedProvinsi)?.provinsi.nama_provinsi || '';
+  const selectedProvName = provinsiList.find((p: any) => p.provinsi_id === selectedProvinsi)?.provinsi.nama_provinsi || '';
 
   return (
     <div className="min-h-screen">
@@ -156,7 +193,7 @@ export default function KabupatenKotaPage() {
               onChange={(e) => setSelectedProvinsi(e.target.value)}
               className="select-dropdown"
             >
-              {alokasiProvinsiData.map(p => (
+              {provinsiList.map((p: any) => (
                 <option key={p.provinsi_id} value={p.provinsi_id}>{p.provinsi.nama_provinsi}</option>
               ))}
             </select>
