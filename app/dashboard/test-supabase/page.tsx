@@ -64,7 +64,7 @@ export default function TestSupabasePage() {
     testConnection();
   }, []);
 
-  const testConnection = async () => {
+  async function testConnection() {
     setLoading(true);
     setTestResult(prev => ({ ...prev, status: 'connecting', message: 'Mengirimkan request uji coba ke Supabase...' }));
 
@@ -321,7 +321,7 @@ export default function TestSupabasePage() {
                   <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
                   <div>
                     <span className="font-semibold block mb-0.5">Tabel Belum Terdeteksi</span>
-                    Anda harus menjalankan skema DDL di "Langkah 1" terlebih dahulu sebelum melakukan impor data, jika tidak API impor akan mengembalikan error.
+                    Anda harus menjalankan skema DDL di &quot;Langkah 1&quot; terlebih dahulu sebelum melakukan impor data, jika tidak API impor akan mengembalikan error.
                   </div>
                 </div>
               )}

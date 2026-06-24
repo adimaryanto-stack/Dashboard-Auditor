@@ -124,6 +124,20 @@ export default function KabkotaDetailPage() {
     setSchoolList(scaledSchoolList);
   }, [scaledSchoolList]);
 
+  // Calculate dynamic totals based on individual school edits
+  const totals = useMemo(() => {
+    const nominal = schoolList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
+    const realisasi = schoolList.reduce((sum, item) => sum + item.realisasi_total, 0);
+    const selisih = nominal - realisasi;
+    const persentase = nominal > 0 ? (realisasi / nominal) * 100 : 0;
+    return { nominal, realisasi, selisih, persentase };
+  }, [schoolList]);
+
+  // Jenjang Breakdown calculation (linked to dynamic district school list total budget)
+  const jenjangBreakdown = useMemo(() => {
+    return getJenjangBreakdownByKabkota(kabkotaId, totals.nominal);
+  }, [kabkotaId, totals.nominal]);
+
   if (!provData || !kabkotaData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -138,20 +152,6 @@ export default function KabkotaDetailPage() {
       </div>
     );
   }
-
-  // Calculate dynamic totals based on individual school edits
-  const totals = useMemo(() => {
-    const nominal = schoolList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
-    const realisasi = schoolList.reduce((sum, item) => sum + item.realisasi_total, 0);
-    const selisih = nominal - realisasi;
-    const persentase = nominal > 0 ? (realisasi / nominal) * 100 : 0;
-    return { nominal, realisasi, selisih, persentase };
-  }, [schoolList]);
-
-  // Jenjang Breakdown calculation (linked to dynamic district school list total budget)
-  const jenjangBreakdown = useMemo(() => {
-    return getJenjangBreakdownByKabkota(kabkotaId, totals.nominal);
-  }, [kabkotaId, totals.nominal]);
 
   const handleCellSave = async (rowId: string, field: 'nominal_alokasi' | 'realisasi_total', newValue: number) => {
     setSchoolList(prev => prev.map(item => {

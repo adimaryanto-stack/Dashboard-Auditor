@@ -99,21 +99,6 @@ export default function ProvinsiDetailPage() {
     setKabkotaList(scaledKabkotaList);
   }, [scaledKabkotaList]);
 
-  if (!provData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-xl shadow-md border border-slate-100 max-w-md">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Provinsi Tidak Ditemukan</h2>
-          <p className="text-text-muted mb-6">ID Provinsi: "{id}" tidak terdaftar di sistem.</p>
-          <button onClick={() => router.back()} className="btn btn-primary inline-flex items-center gap-2">
-            <ArrowLeft size={16} />
-            Kembali
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Calculate dynamic totals based on Kabupaten/Kota state
   const totals = useMemo(() => {
     const nominal = kabkotaList.reduce((sum, item) => sum + item.nominal_alokasi, 0);
@@ -127,6 +112,21 @@ export default function ProvinsiDetailPage() {
   const jenjangBreakdown = useMemo(() => {
     return getJenjangBreakdownByProvinsi(id, totals.nominal);
   }, [id, totals.nominal]);
+
+  if (!provData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-xl shadow-md border border-slate-100 max-w-md">
+          <h2 className="text-xl font-bold text-text-primary mb-2">Provinsi Tidak Ditemukan</h2>
+          <p className="text-text-muted mb-6">ID Provinsi: &quot;{id}&quot; tidak terdaftar di sistem.</p>
+          <button onClick={() => router.back()} className="btn btn-primary inline-flex items-center gap-2">
+            <ArrowLeft size={16} />
+            Kembali
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleCellSave = async (rowId: string, field: 'nominal_alokasi' | 'realisasi_total', newValue: number) => {
     setKabkotaList(prev => prev.map(item => {
