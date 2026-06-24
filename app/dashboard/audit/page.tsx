@@ -9,9 +9,9 @@ import { useAppStore } from '@/lib/store';
 import { fmtRupiah } from '@/lib/utils/formatters';
 import {
   ShieldAlert, ShieldCheck, AlertTriangle, Play,
-  Loader2, CheckCircle2, FileText, RefreshCw, Info,
-  HelpCircle, MapPin, Calendar, User, Wrench, Send,
-  MessageSquare, FileSearch, X
+  Loader2, CheckCircle2, FileText, RefreshCw,
+  MapPin, Calendar, User, Wrench, Send,
+  FileSearch, X
 } from 'lucide-react';
 
 // Pre-defined Gemini audit reports based on selected institution
@@ -69,6 +69,7 @@ interface ChatMessage {
 }
 
 export default function AuditPage() {
+  const { isSupabaseMode, dbData } = useAppStore();
   const [anomalies, setAnomalies] = useState<AuditAnomaly[]>(mockAnomalies);
   const [selectedInst, setSelectedInst] = useState('inst-universitas-0');
   const [scanStatus, setScanStatus] = useState<'IDLE' | 'SCANNING' | 'DONE'>('IDLE');
@@ -86,6 +87,15 @@ export default function AuditPage() {
   const [tempStatus, setTempStatus] = useState<'TEMUAN' | 'INVESTIGASI' | 'SELESAI' | null>(null);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
+
+  // Sync anomalies from store if Supabase mode is active
+  useEffect(() => {
+    if (isSupabaseMode && dbData?.audit_anomaly) {
+      setAnomalies(dbData.audit_anomaly);
+    } else {
+      setAnomalies(mockAnomalies);
+    }
+  }, [isSupabaseMode, dbData?.audit_anomaly]);
 
   // Statistics
   const activeCount = anomalies.filter(a => a.status !== 'SELESAI').length;

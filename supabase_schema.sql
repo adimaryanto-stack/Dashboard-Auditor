@@ -178,3 +178,30 @@ CREATE POLICY "Allow public insert access" ON public.pengeluaran_bulanan_institu
 CREATE POLICY "Allow public insert access" ON public.rincian_pengeluaran_item FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public insert access" ON public.users FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public insert access" ON public.audit_anomaly FOR INSERT WITH CHECK (true);
+
+-- Buat policy update anonim (untuk penyuntingan data)
+CREATE POLICY "Allow public update access" ON public.tahun_anggaran FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.provinsi FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.alokasi_provinsi FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.kabupaten_kota FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.alokasi_kabupaten_kota FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.institusi_pendidikan FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.sumber_dana_institusi FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.pengeluaran_bulanan_institusi FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.rincian_pengeluaran_item FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.users FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON public.audit_anomaly FOR UPDATE USING (true) WITH CHECK (true);
+
+-- Buat policy delete anonim
+CREATE POLICY "Allow public delete access" ON public.tahun_anggaran FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.provinsi FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.alokasi_provinsi FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.kabupaten_kota FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.alokasi_kabupaten_kota FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.institusi_pendidikan FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.sumber_dana_institusi FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.pengeluaran_bulanan_institusi FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.rincian_pengeluaran_item FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.users FOR DELETE USING (true);
+CREATE POLICY "Allow public delete access" ON public.audit_anomaly FOR DELETE USING (true);
+
