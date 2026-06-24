@@ -153,6 +153,55 @@ ALTER TABLE public.rincian_pengeluaran_item ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_anomaly ENABLE ROW LEVEL SECURITY;
 
+-- Hapus policy jika sudah ada sebelumnya untuk menghindari error duplikasi
+DROP POLICY IF EXISTS "Allow public read access" ON public.tahun_anggaran;
+DROP POLICY IF EXISTS "Allow public read access" ON public.provinsi;
+DROP POLICY IF EXISTS "Allow public read access" ON public.alokasi_provinsi;
+DROP POLICY IF EXISTS "Allow public read access" ON public.kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public read access" ON public.alokasi_kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public read access" ON public.institusi_pendidikan;
+DROP POLICY IF EXISTS "Allow public read access" ON public.sumber_dana_institusi;
+DROP POLICY IF EXISTS "Allow public read access" ON public.pengeluaran_bulanan_institusi;
+DROP POLICY IF EXISTS "Allow public read access" ON public.rincian_pengeluaran_item;
+DROP POLICY IF EXISTS "Allow public read access" ON public.users;
+DROP POLICY IF EXISTS "Allow public read access" ON public.audit_anomaly;
+
+DROP POLICY IF EXISTS "Allow public insert access" ON public.tahun_anggaran;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.provinsi;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.alokasi_provinsi;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.alokasi_kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.institusi_pendidikan;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.sumber_dana_institusi;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.pengeluaran_bulanan_institusi;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.rincian_pengeluaran_item;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.users;
+DROP POLICY IF EXISTS "Allow public insert access" ON public.audit_anomaly;
+
+DROP POLICY IF EXISTS "Allow public update access" ON public.tahun_anggaran;
+DROP POLICY IF EXISTS "Allow public update access" ON public.provinsi;
+DROP POLICY IF EXISTS "Allow public update access" ON public.alokasi_provinsi;
+DROP POLICY IF EXISTS "Allow public update access" ON public.kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public update access" ON public.alokasi_kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public update access" ON public.institusi_pendidikan;
+DROP POLICY IF EXISTS "Allow public update access" ON public.sumber_dana_institusi;
+DROP POLICY IF EXISTS "Allow public update access" ON public.pengeluaran_bulanan_institusi;
+DROP POLICY IF EXISTS "Allow public update access" ON public.rincian_pengeluaran_item;
+DROP POLICY IF EXISTS "Allow public update access" ON public.users;
+DROP POLICY IF EXISTS "Allow public update access" ON public.audit_anomaly;
+
+DROP POLICY IF EXISTS "Allow public delete access" ON public.tahun_anggaran;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.provinsi;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.alokasi_provinsi;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.alokasi_kabupaten_kota;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.institusi_pendidikan;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.sumber_dana_institusi;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.pengeluaran_bulanan_institusi;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.rincian_pengeluaran_item;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.users;
+DROP POLICY IF EXISTS "Allow public delete access" ON public.audit_anomaly;
+
 -- Buat policy baca anonim
 CREATE POLICY "Allow public read access" ON public.tahun_anggaran FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.provinsi FOR SELECT USING (true);
@@ -204,4 +253,5 @@ CREATE POLICY "Allow public delete access" ON public.pengeluaran_bulanan_institu
 CREATE POLICY "Allow public delete access" ON public.rincian_pengeluaran_item FOR DELETE USING (true);
 CREATE POLICY "Allow public delete access" ON public.users FOR DELETE USING (true);
 CREATE POLICY "Allow public delete access" ON public.audit_anomaly FOR DELETE USING (true);
+
 
