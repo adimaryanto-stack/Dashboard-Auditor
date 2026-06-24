@@ -1,5 +1,5 @@
 // ============================================
-// Mock Data — Sistem Transparansi Anggaran Pendidikan
+// Mock Data — Dashboard Auditor
 // All data is deterministic (no Math.random) to avoid hydration mismatches
 // ============================================
 import {

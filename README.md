@@ -1,4 +1,4 @@
-# Dashboard Institusi Pendidikan 🇮🇩
+# Dashboard Auditor 🇮🇩
 
 Sistem informasi modern bergaya _spreadsheet_ untuk pemantauan, alokasi, transparansi, dan audit Anggaran Pendapatan dan Belanja Negara (APBN) di sektor Pendidikan Indonesia.
 
@@ -89,7 +89,7 @@ Sistem ini dibangun menggunakan ekosistem *web modern* dengan performa tinggi:
 ## 📂 Struktur Proyek
 
 ```text
-dashboard-institusi-pendidikan/
+dashboard-auditor/
 ├── app/                  # Next.js App Router (Halaman & Layout)
 │   ├── dashboard/        # Halaman utama aplikasi (APBN, Provinsi, Kab/Kota, dll.)
 │   ├── globals.css       # Root stylesheet (Tailwind v4 tokens & utility classes)
@@ -111,8 +111,8 @@ Pastikan Anda memiliki [Node.js](https://nodejs.org/) (versi 18+ disarankan) ter
 
 1. **Clone repository ini**
    ```bash
-   git clone https://github.com/username/transparansi-anggaran.git
-   cd transparansi-anggaran
+   git clone https://github.com/adimaryanto-stack/Dashboard-Auditor.git
+   cd Dashboard-Auditor
    ```
 
 2. **Install dependencies**

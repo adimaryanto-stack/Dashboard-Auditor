@@ -1,7 +1,7 @@
 # MVP Roadmap v2 - Spreadsheet Interface
-# Sistem Transparansi Anggaran Pendidikan
+# Dashboard Auditor
 
-**Project**: Transparansi Anggaran Pendidikan - Spreadsheet Interface  
+**Project**: Dashboard Auditor - Spreadsheet Interface  
 **Timeline**: 8 Weeks (4 Sprints x 2 Weeks)  
 **Approach**: Excel-like web application dengan real-time calculation  
 **Tech**: Next.js 14 + react-data-grid + PostgreSQL + Drizzle ORM
@@ -15,8 +15,8 @@
 **Day 1-2: Project Initialization**
 ```bash
 # Create Next.js project
-npx create-next-app@latest transparansi-anggaran --typescript --tailwind --app
-cd transparansi-anggaran
+npx create-next-app@latest dashboard-auditor --typescript --tailwind --app
+cd dashboard-auditor
 
 # Install dependencies
 npm install drizzle-orm postgres
@@ -316,7 +316,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
-          Transparansi Anggaran Pendidikan
+          Dashboard Auditor
         </h1>
         <form onSubmit={handleLogin}>
           <div className="mb-4">
@@ -424,7 +424,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-blue-900 text-white">
       <div className="p-4">
         <h1 className="text-xl font-bold">
-          Transparansi Anggaran
+          Dashboard Auditor
         </h1>
       </div>
       <nav className="mt-6">

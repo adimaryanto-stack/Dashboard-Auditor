@@ -1,5 +1,5 @@
 // ============================================
-// Types — Sistem Transparansi Anggaran Pendidikan
+// Types — Dashboard Auditor
 // ============================================
 
 export type BudgetStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';

@@ -1,8 +1,8 @@
-# PRD — Sistem Transparansi Anggaran Pendidikan Indonesia
+# PRD — Dashboard Auditor
 **Version:** 3.0 (Final Consolidated)  
 **Date:** 2 Mei 2026  
 **Status:** ✅ APPROVED FOR DEVELOPMENT  
-**Project Type:** Web-Based Spreadsheet Dashboard — Education Budget Transparency
+**Project Type:** Web-Based Spreadsheet Dashboard — Education Budget Transparency (Dashboard Auditor)
 
 ---
 
@@ -24,7 +24,7 @@
 ## 1. Project Overview
 
 ### 1.1 Deskripsi Aplikasi
-Sistem Transparansi Anggaran Pendidikan adalah aplikasi web berbasis **spreadsheet interface** untuk menampilkan, mengelola, dan mengaudit aliran dana pendidikan Indonesia dari tingkat nasional (APBN) hingga institusi pendidikan di seluruh daerah. Tampilannya menyerupai Excel/Google Sheets dengan semua kalkulasi angka terhubung secara real-time antar menu dan database.
+Dashboard Auditor adalah aplikasi web berbasis **spreadsheet interface** untuk menampilkan, mengelola, dan mengaudit aliran dana pendidikan Indonesia dari tingkat nasional (APBN) hingga institusi pendidikan di seluruh daerah. Tampilannya menyerupai Excel/Google Sheets dengan semua kalkulasi angka terhubung secara real-time antar menu dan database.
 
 ### 1.2 Target User & Role
 
@@ -90,7 +90,7 @@ Sistem Transparansi Anggaran Pendidikan adalah aplikasi web berbasis **spreadshe
 **Layout:**
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  TRANSPARANSI ANGGARAN PENDIDIKAN        Tahun: [2026 ▼] │
+│  DASHBOARD AUDITOR                       Tahun: [2026 ▼] │
 ├──────────────────┬──────────────────┬────────────────────┤
 │ Total Nominal    │ Total Realisasi  │ % Penyerapan       │
 │ 769,1 T          │ 500,4 T          │ 65,1%              │
@@ -588,7 +588,7 @@ CREATE INDEX idx_institusi_nama        ON institusi_pendidikan(nama_institusi);
 ### 6.2 Frontend Structure (Implemented)
 
 ```
-transparansi-anggaran/               ← Next.js 14 project
+dashboard-auditor/                   ← Next.js 14 project
 │
 ├── app/
 │   ├── layout.tsx                   ← Root layout + metadata SEO
@@ -630,7 +630,7 @@ transparansi-anggaran/               ← Next.js 14 project
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/transparansi_anggaran"
+DATABASE_URL="postgresql://user:password@localhost:5432/dashboard_auditor"
 
 # Auth
 BETTER_AUTH_SECRET="your-secret-key-min-32-chars"
@@ -642,7 +642,7 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 # Storage (production)
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
-AWS_S3_BUCKET="transparansi-anggaran-exports"
+AWS_S3_BUCKET="dashboard-auditor-exports"
 AWS_REGION="ap-southeast-1"
 ```
 
@@ -699,7 +699,7 @@ graph TB
 
 ```mermaid
 graph LR
-    Root[Transparansi Anggaran] --> Dash[📊 Dashboard]
+    Root[Dashboard Auditor] --> Dash[📊 Dashboard]
     Root --> APBN[💰 APBN Pertahun]
     Root --> Prov[📍 Provinsi]
     Root --> Kab[🏛️ Kabupaten/Kota]

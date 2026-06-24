@@ -1,5 +1,5 @@
 -- ============================================================
--- SCHEMA DDL - Dasbor Auditor Transparansi Anggaran Pendidikan
+-- SCHEMA DDL - Dashboard Auditor
 -- ============================================================
 
 -- 1. Tabel Tahun Anggaran
