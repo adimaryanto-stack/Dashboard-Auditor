@@ -2,9 +2,11 @@
 # Dashboard Auditor
 
 **Project**: Dashboard Auditor - Spreadsheet Interface  
+**Version**: 2.1  
+**Updated**: 24 Juni 2026  
 **Timeline**: 8 Weeks (4 Sprints x 2 Weeks)  
 **Approach**: Excel-like web application dengan real-time calculation  
-**Tech**: Next.js 14 + react-data-grid + PostgreSQL + Drizzle ORM
+**Tech**: Next.js 16 + React 19 + Tailwind CSS v4 + Supabase (PostgreSQL)
 
 ---
 
@@ -1935,6 +1937,16 @@ const data = await db
 
 ---
 
-**Document Version**: 2.0  
-**Last Updated**: April 13, 2026  
+## Changelog / Revision History
+
+| Version | Tanggal | Perubahan |
+|---------|---------|----------|
+| 2.1 | 24 Juni 2026 | Sinkronisasi versi & tanggal, update tech stack (Next.js 16, React 19, Tailwind v4, Supabase), tambah changelog |
+| 2.0 | 13 April 2026 | MVP Roadmap lengkap 4 Sprint + fase post-MVP (Sprint 5–10) |
+| 1.0 | Maret 2026 | Draft awal roadmap pengembangan |
+
+---
+
+**Document Version**: 2.1  
+**Last Updated**: 24 Juni 2026  
 **Status**: ✅ READY FOR DEVELOPMENT

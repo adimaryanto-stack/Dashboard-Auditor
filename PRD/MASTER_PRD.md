@@ -1,6 +1,6 @@
 # PRD — Dashboard Auditor
-**Version:** 3.0 (Final Consolidated)  
-**Date:** 2 Mei 2026  
+**Version:** 3.2  
+**Date:** 24 Juni 2026  
 **Status:** ✅ APPROVED FOR DEVELOPMENT  
 **Project Type:** Web-Based Spreadsheet Dashboard — Education Budget Transparency (Dashboard Auditor)
 
@@ -1002,7 +1002,19 @@ Selisih        : Rp 325.586.000
 
 ---
 
-**Document Version**: 3.0 (Final Consolidated)  
+## Appendix B: Changelog / Revision History
+
+| Version | Tanggal | Perubahan |
+|---------|---------|----------|
+| 3.2 | 24 Juni 2026 | Sinkronisasi versi & tanggal, tambah Changelog, update status Sprint 4 |
+| 3.1 | 24 Juni 2026 | Rename proyek ke Dashboard Auditor, update tech stack (Next.js 16, React 19, Tailwind v4), status Sprint 4 |
+| 3.0 | 2 Mei 2026 | Final Consolidated — gabung PRD v1, v2, MVP Roadmap v2, System Diagrams v2, Update Summary APBN |
+| 2.0 | April 2026 | Tambah menu Audit Anggaran, Profil Institusi, detail sumber dana & pengeluaran |
+| 1.0 | Maret 2026 | PRD awal: 6 menu utama, database schema, API endpoints, system diagrams |
+
+---
+
+**Document Version**: 3.2  
 **Compiled from**: PRD v1, PRD v2, MVP Roadmap v2, System Diagrams v2, Update Summary APBN  
-**Last Updated**: 2 Mei 2026  
-**Ready for**: Backend Development (Sprint 1)
+**Last Updated**: 24 Juni 2026  
+**Ready for**: Sprint 4 Completion (RBAC, Export, Optimization)

@@ -1,5 +1,7 @@
 # Dashboard Auditor 🇮🇩
 
+**Version:** 1.0.0 &nbsp;|&nbsp; **Updated:** 24 Juni 2026
+
 Sistem informasi modern bergaya _spreadsheet_ untuk pemantauan, alokasi, transparansi, dan audit Anggaran Pendapatan dan Belanja Negara (APBN) di sektor Pendidikan Indonesia.
 
 Aplikasi ini menyajikan *dashboard* dengan performa tinggi yang memungkinkan instansi terkait (mulai dari tingkat nasional hingga daerah) memantau alokasi vs realisasi anggaran secara berjenjang dan real-time.
@@ -132,6 +134,37 @@ Pastikan Anda memiliki [Node.js](https://nodejs.org/) (versi 18+ disarankan) ter
 
 Dokumentasi rancangan produk, arsitektur, dan peta jalan (roadmap) pengembangan telah digabung menjadi satu file untuk memudahkan referensi:
 - Cek file **[`PRD/MASTER_PRD.md`](./PRD/MASTER_PRD.md)**
+
+## 📋 Changelog
+
+### v1.0.0 — 24 Juni 2026
+- **refactor:** Rename project menjadi *Dashboard Auditor* di seluruh file (README, PRD, MVP, types, CSS, SQL, Header)
+- **docs:** Update README.md dan tambah screenshot menu localhost
+- **fix:** Tambah `DROP POLICY IF EXISTS` untuk mencegah error duplikat di Supabase SQL editor
+- **fix:** Tambah RLS policies UPDATE & DELETE pada skema Supabase, perbaiki store subscription untuk daftar anomali
+- **fix:** Resolve semua lint errors, unescaped JSX quotes, dan conditional hook placement agar production build lolos
+- **fix:** Gunakan `rollupKabKotaChange` di halaman kabupaten-kota untuk menjaga konsistensi rollup provinsi
+- **fix:** Populate relasi provinsi pada `alokasi_provinsi`, sinkronisasi module vars saat session restore
+- **fix:** Resolve loading stuck, slow sync, dan masalah data Supabase (DashboardDbLoader, Zustand persist, lazy load)
+- **feat:** Implement full digit number formatting, audit status save flow
+- **feat:** Sync penuh dengan Supabase, spreadsheet cells editable, fix compilation errors
+- **feat:** Hubungkan Supabase database client, dynamic data dual-mode, setup skema DB & sinkronisasi data awal
+
+### v0.1.0 — April 2026 (Initial Release)
+- **feat:** Setup project Next.js 16 + React 19 + Tailwind CSS v4
+- **feat:** Dashboard utama dengan metric cards, tabel ringkasan jenjang, dan chart (Recharts)
+- **feat:** Halaman APBN Pertahun dengan manajemen status DRAFT → ACTIVE → CLOSED
+- **feat:** Spreadsheet Provinsi (38 provinsi) dengan inline editing
+- **feat:** Spreadsheet Kabupaten/Kota dengan filter dropdown provinsi
+- **feat:** Dynamic route Jenjang Pendidikan (Universitas, SMA, SMP, SD, PAUD)
+- **feat:** Profil Institusi dengan detail sumber dana & pengeluaran bulanan
+- **feat:** Halaman Audit Anggaran dengan deteksi anomali
+- **feat:** User Manager CRUD dengan Role-Based Access Control
+- **feat:** Integrasi & Migrasi Supabase (setup skema, import data)
+- **feat:** Mock data deterministik untuk seluruh 38 provinsi dan 514 kabupaten/kota
+- **docs:** Upload PRD v3.1 dan MVP Roadmap v2
+
+---
 
 ## 🛡️ Lisensi & Kepemilikan
 
